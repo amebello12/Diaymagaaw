@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Product } from '../types';
 import { ProductCard } from './ProductCard';
 import { Flame, Sparkles } from 'lucide-react';
+import { ActiveFlame } from './ActiveFlame';
 
 interface FeaturedProductsProps {
   products: Product[];
@@ -65,14 +66,14 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
 
             <button
               onClick={() => setFilter('promos')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
                 filter === 'promos'
-                  ? 'bg-red-600 text-white shadow-md'
+                  ? 'bg-linear-to-r from-red-600 to-orange-600 text-white shadow-md'
                   : 'bg-white text-red-600 hover:bg-red-50 border border-red-200'
               }`}
             >
-              <Sparkles className="w-3 h-3" />
-              Promos & Réductions
+              <ActiveFlame size="xs" glow={false} />
+              <span>Promos & Réductions</span>
             </button>
 
             <button

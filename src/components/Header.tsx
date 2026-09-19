@@ -12,11 +12,12 @@ import {
   Download,
   Settings,
   Sparkles,
-  Lock
+  Star
 } from 'lucide-react';
 import { Product, ActiveView, StoreSettings } from '../types';
 import { formatFCFA, STORE_PHONE_DISPLAY, formatPhoneNumber, cleanPhoneForWhatsApp } from '../utils/currency';
 import { BrandLogo } from './BrandLogo';
+import { ActiveFlame } from './ActiveFlame';
 
 interface HeaderProps {
   activeView: ActiveView;
@@ -394,12 +395,15 @@ export const Header: React.FC<HeaderProps> = ({
 
             <button
               onClick={() => handleNavClick('shop', 'promotions')}
-              className={`hover:text-red-700 text-red-600 font-extrabold flex items-center gap-1.5 pb-0.5 cursor-pointer ${
-                currentCategorySlug === 'promotions' ? 'border-b-2 border-red-600' : ''
+              className={`hover:text-red-700 text-red-600 font-extrabold flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-red-50/80 transition cursor-pointer relative group ${
+                currentCategorySlug === 'promotions' ? 'border-b-2 border-red-600 bg-red-50/60' : ''
               }`}
             >
-              <Flame className="w-4 h-4 fill-red-600 text-red-600 animate-pulse" />
+              <ActiveFlame size="sm" />
               <span>Promotions Flash</span>
+              <span className="text-[10px] bg-linear-to-r from-red-600 to-orange-500 text-white font-black px-1.5 py-0.5 rounded-full uppercase shadow-xs tracking-wider">
+                HOT
+              </span>
             </button>
 
             <button
@@ -409,6 +413,16 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               Tarifs Livraison
+            </button>
+
+            <button
+              onClick={() => handleNavClick('reviews', null)}
+              className={`hover:text-red-600 transition pb-0.5 cursor-pointer flex items-center gap-1 ${
+                activeView === 'reviews' ? 'text-red-600 font-bold border-b-2 border-red-600' : ''
+              }`}
+            >
+              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+              <span>Avis Clients</span>
             </button>
 
             <button
@@ -481,10 +495,15 @@ export const Header: React.FC<HeaderProps> = ({
 
             <button
               onClick={() => handleNavClick('shop', 'promotions')}
-              className="text-left px-3 py-2.5 rounded-lg text-sm font-bold text-red-600 bg-red-50/70 flex items-center gap-2"
+              className="text-left px-3.5 py-3 rounded-xl text-sm font-black text-red-600 bg-linear-to-r from-red-50 via-orange-50/50 to-amber-50/60 border border-red-200 flex items-center justify-between gap-2 shadow-xs"
             >
-              <Flame className="w-4 h-4" />
-              <span>Grandes Promotions Flash</span>
+              <div className="flex items-center gap-2.5">
+                <ActiveFlame size="sm" />
+                <span>Grandes Promotions Flash</span>
+              </div>
+              <span className="text-[10px] bg-red-600 text-white font-black px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
+                HOT 🔥
+              </span>
             </button>
 
             <button
@@ -492,6 +511,14 @@ export const Header: React.FC<HeaderProps> = ({
               className="text-left px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               🚚 Zones & Tarifs de Livraison
+            </button>
+
+            <button
+              onClick={() => handleNavClick('reviews', null)}
+              className="text-left px-3 py-2.5 rounded-lg text-sm font-bold text-gray-900 hover:bg-gray-50 flex items-center gap-2"
+            >
+              <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+              <span>⭐ Avis Clients & Notes Étoiles</span>
             </button>
 
             <button

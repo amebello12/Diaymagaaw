@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Flame, Clock, Zap, ArrowRight } from 'lucide-react';
 import { Product } from '../types';
 import { formatFCFA } from '../utils/currency';
+import { ActiveFlame } from './ActiveFlame';
 
 interface FlashSaleSectionProps {
   products: Product[];
@@ -58,14 +59,20 @@ export const FlashSaleSection: React.FC<FlashSaleSectionProps> = ({
         {/* Top Header with Countdown */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10 pb-8 border-b border-red-900/50">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-600/40 text-red-300 border border-red-500/50 text-xs font-black uppercase tracking-wider mb-3">
-              <Flame className="w-4 h-4 fill-red-400 text-red-400 animate-bounce" />
-              <span>OFFRES À DURÉE LIMITÉE</span>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-red-600/40 via-orange-600/30 to-amber-600/30 text-red-200 border border-red-500/50 text-xs font-black uppercase tracking-wider mb-3 shadow-sm shadow-red-900/50">
+              <ActiveFlame size="xs" />
+              <span>OFFRES EN FEU • DURÉE LIMITÉE</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight font-display text-white">
-              🔥 GRANDES PROMOTIONS
-            </h2>
-            <p className="text-gray-300 text-sm sm:text-base mt-1 max-w-xl">
+            
+            <div className="flex items-center gap-3">
+              <ActiveFlame size="lg" className="shrink-0" />
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight font-display text-white drop-shadow-md">
+                GRANDES PROMOTIONS FLASH
+              </h2>
+              <ActiveFlame size="lg" className="shrink-0 hidden sm:inline-flex" />
+            </div>
+
+            <p className="text-gray-300 text-sm sm:text-base mt-2 max-w-xl">
               Profitez de nos offres exceptionnelles avant la fin du stock. Livraison express dans tout le Sénégal.
             </p>
           </div>
@@ -115,8 +122,9 @@ export const FlashSaleSection: React.FC<FlashSaleSectionProps> = ({
                   alt={prod.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                 />
-                <div className="absolute top-2.5 left-2.5 bg-red-600 text-white text-xs font-black px-2.5 py-1 rounded-lg shadow-md">
-                  -{prod.discountPercent || 30}% ÉCONOMIE
+                <div className="absolute top-2.5 left-2.5 bg-gradient-to-r from-red-600 to-orange-600 text-white text-xs font-black px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1.5 border border-red-400/40">
+                  <ActiveFlame size="xs" glow={false} />
+                  <span>-{prod.discountPercent || 30}% ÉCONOMIE</span>
                 </div>
               </div>
 
@@ -160,10 +168,10 @@ export const FlashSaleSection: React.FC<FlashSaleSectionProps> = ({
                     onSelectProduct(prod);
                   }
                 }}
-                className="w-full py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-black rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-red-600/30 cursor-pointer"
+                className="w-full py-2.5 bg-gradient-to-r from-red-600 via-orange-600 to-red-600 hover:from-red-700 hover:to-orange-700 active:scale-95 text-white text-xs font-black rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-red-600/30 cursor-pointer"
               >
-                <Zap className="w-4 h-4 fill-white" />
-                <span>COMMANDER EN PROMO</span>
+                <ActiveFlame size="xs" glow={false} />
+                <span>COMMANDER EN PROMO FLASH</span>
               </button>
             </div>
           ))}
@@ -173,9 +181,10 @@ export const FlashSaleSection: React.FC<FlashSaleSectionProps> = ({
         <div className="mt-10 text-center">
           <button
             onClick={handlePromos}
-            className="px-8 py-4 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white font-black text-sm rounded-2xl shadow-xl shadow-red-900/40 transition inline-flex items-center gap-3 active:scale-95 cursor-pointer"
+            className="px-8 py-4 bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white font-black text-sm rounded-2xl shadow-xl shadow-red-900/50 transition inline-flex items-center gap-3 active:scale-95 cursor-pointer border border-red-400/30"
           >
-            <span>DÉCOUVRIR TOUTES LES OFFRES FLASH</span>
+            <ActiveFlame size="sm" />
+            <span>DÉCOUVRIR TOUTES LES OFFRES FLASH EN FEU</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

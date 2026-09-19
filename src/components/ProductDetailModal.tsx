@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Product, Review, StoreSettings } from '../types';
 import { formatFCFA, createWhatsAppProductMessage } from '../utils/currency';
+import { ActiveFlame } from './ActiveFlame';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -191,8 +192,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       <span className="text-sm text-gray-400 line-through">
                         {formatFCFA(product.originalPrice)}
                       </span>
-                      <span className="text-xs font-black text-red-600 bg-white px-2 py-0.5 rounded border border-red-200">
-                        Économisez {formatFCFA(product.originalPrice - product.price)}
+                      <span className="text-xs font-black text-red-600 bg-white px-2 py-0.5 rounded border border-red-200 flex items-center gap-1 shadow-xs">
+                        <ActiveFlame size="xs" glow={false} />
+                        <span>Économisez {formatFCFA(product.originalPrice - product.price)}</span>
                       </span>
                     </div>
                   )}

@@ -111,6 +111,7 @@ export type ActiveView =
   | 'category'
   | 'product_detail'
   | 'delivery'
+  | 'reviews'
   | 'about'
   | 'contact'
   | 'faq'
@@ -131,4 +132,24 @@ export interface StoreSettings {
   enableCashOnDelivery: boolean;
   orderNoticeEmail?: string;
   deliveryNotificationWhatsApp: boolean;
+  showAdminLockInFooter?: boolean;
+}
+
+export interface VisitorDayStats {
+  date: string; // Ex: '15 Sept'
+  fullDate: string; // YYYY-MM-DD
+  visitors: number;
+  pageViews: number;
+}
+
+export interface VisitorStats {
+  totalVisitors: number;
+  todayVisitors: number;
+  uniqueVisitors: number;
+  activeNow: number;
+  totalPageViews: number;
+  lastUpdated: string;
+  dailyHistory: VisitorDayStats[];
+  topRegions: { region: string; visitors: number; percentage: number }[];
+  deviceBreakdown: { device: string; percentage: number; count: number }[];
 }

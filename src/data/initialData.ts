@@ -383,6 +383,26 @@ export const INITIAL_REVIEWS: Review[] = [
     date: '02 Août 2026',
     comment: 'Air Fryer parfait pour faire frire le poulet sans une seule goutte d’huile. Très économique et cuit super vite. Bravo pour le sérieux.',
     verifiedPurchase: true
+  },
+  {
+    id: 'rev-5',
+    productId: 'prod-4',
+    authorName: 'Seynabou Diallo',
+    city: 'Dakar (Mermoz)',
+    rating: 5,
+    date: '28 Juillet 2026',
+    comment: 'Livraison express reçue en moins de 2h chrono après commande par WhatsApp. Le produit correspond exactement à la description. Service impeccable !',
+    verifiedPurchase: true
+  },
+  {
+    id: 'rev-6',
+    productId: 'prod-3',
+    authorName: 'Ousmane Ba',
+    city: 'Saint-Louis',
+    rating: 4,
+    date: '21 Juillet 2026',
+    comment: 'Très bon article et bon rapport qualité-prix. Arrivé bien emballé par le transporteur régional à Saint-Louis. Paiement Orange Money facile.',
+    verifiedPurchase: true
   }
 ];
 
@@ -420,6 +440,7 @@ export const INITIAL_STORE_SETTINGS: StoreSettings = {
   enableFreeMoney: true,
   enableCashOnDelivery: true,
   orderNoticeEmail: 'commandes@diaymagaaw.sn',
-  deliveryNotificationWhatsApp: true
+  deliveryNotificationWhatsApp: true,
+  showAdminLockInFooter: false
 };
 

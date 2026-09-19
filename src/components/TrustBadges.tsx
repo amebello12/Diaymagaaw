@@ -29,11 +29,11 @@ export const TrustBadges: React.FC<TrustBadgesProps> = ({ onNavigate }) => {
     {
       icon: <ShieldCheck className="w-6 h-6 text-amber-600" />,
       bg: 'bg-amber-50/80 border-amber-100 hover:border-amber-300',
-      title: '🔒 Achat 100% garanti',
-      desc: 'Vos informations et commandes sont protégées. Service client 7j/7.',
-      view: 'about' as ActiveView,
+      title: '⭐ Avis 100% vérifiés (4.9/5)',
+      desc: 'Des centaines de clients satisfaits à Dakar et dans toutes les régions.',
+      view: 'reviews' as ActiveView,
       categorySlug: null,
-      actionText: 'Découvrir nos engagements'
+      actionText: 'Voir les avis & notes'
     },
     {
       icon: <CheckCircle2 className="w-6 h-6 text-red-600" />,

@@ -2,6 +2,7 @@ import React from 'react';
 import { ShoppingCart, Zap, Star, MessageCircle } from 'lucide-react';
 import { Product } from '../types';
 import { formatFCFA, createWhatsAppProductMessage } from '../utils/currency';
+import { ActiveFlame } from './ActiveFlame';
 
 interface ProductCardProps {
   product: Product;
@@ -24,9 +25,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Badges Top Bar */}
       <div className="absolute top-2.5 left-2.5 right-2.5 z-10 flex items-center justify-between pointer-events-none">
         {product.discountPercent && product.discountPercent > 0 ? (
-          <span className="bg-red-600 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
+          <span className="bg-gradient-to-r from-red-600 via-orange-600 to-red-600 text-white text-[11px] font-black px-2 py-0.5 rounded-lg shadow-md flex items-center gap-1 border border-red-400/40">
+            <ActiveFlame size="xs" glow={false} />
             <span>PROMO</span>
             <span>-{product.discountPercent}%</span>
+          </span>
+        ) : product.isFlashSale ? (
+          <span className="bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 text-white text-[11px] font-black px-2 py-0.5 rounded-lg shadow-md flex items-center gap-1 border border-red-400/40">
+            <ActiveFlame size="xs" glow={false} />
+            <span>FLASH</span>
           </span>
         ) : product.isNew ? (
           <span className="bg-emerald-600 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-md">

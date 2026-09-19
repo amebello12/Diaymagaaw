@@ -43,7 +43,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-              <span>Akk Diayma Gaaw diakhlé diékh na ci mime rew</span>
+              <span>Efficacité • Rapidité • Fiabilité</span>
             </div>
 
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.15] font-display">

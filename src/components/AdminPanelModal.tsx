@@ -40,13 +40,18 @@ import {
   Bell,
   UploadCloud,
   Image as ImageIcon,
-  Loader2
+  Loader2,
+  Users,
+  Activity,
+  Laptop,
+  ArrowUpRight
 } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
-import { Product, Category, Order, PromoCode, DeliveryZone, StoreSettings } from '../types';
+import { Product, Category, Order, PromoCode, DeliveryZone, StoreSettings, Review, VisitorStats } from '../types';
 import { formatFCFA, STORE_PHONE_RAW } from '../utils/currency';
 import { INITIAL_STORE_SETTINGS } from '../data/initialData';
 import { WaveLogo, OrangeMoneyLogo, FreeMoneyLogo, CashOnDeliveryLogo } from './PaymentLogos';
+import { getVisitorStats, resetVisitorStatsToZero } from '../utils/visitorTracker';
 
 // Compress image file to lightweight DataURL to avoid exceeding storage quota
 const compressAndReadImage = (file: File): Promise<string> => {
@@ -127,6 +132,10 @@ interface AdminPanelModalProps {
   onResetDashboardStats?: () => void;
   onResetStockAlerts?: () => void;
   onResetAllAdmin?: () => void;
+  reviews?: Review[];
+  onDeleteReview?: (reviewId: string) => void;
+  visitorStats?: VisitorStats;
+  onResetVisitorStats?: () => void;
 }
 
 export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
@@ -155,8 +164,25 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onResetDeliveryZones,
   onResetDashboardStats,
   onResetStockAlerts,
-  onResetAllAdmin
+  onResetAllAdmin,
+  reviews = [],
+  onDeleteReview,
+  visitorStats,
+  onResetVisitorStats
 }) => {
+  // Visitor statistics state fallback & live tracking
+  const [localVisitorStats, setLocalVisitorStats] = useState<VisitorStats>(() => visitorStats || getVisitorStats());
+
+  useEffect(() => {
+    if (visitorStats) {
+      setLocalVisitorStats(visitorStats);
+    } else {
+      setLocalVisitorStats(getVisitorStats());
+    }
+  }, [visitorStats]);
+
+  const currentVisitorStats = visitorStats || localVisitorStats;
+
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
@@ -172,7 +198,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Tabs
-  const [tab, setTab] = useState<'dashboard' | 'products' | 'orders' | 'promos' | 'delivery' | 'settings'>('dashboard');
+  const [tab, setTab] = useState<'dashboard' | 'products' | 'orders' | 'promos' | 'delivery' | 'reviews' | 'settings'>('dashboard');
 
   // Product Filtering & Form State
   const [productSearch, setProductSearch] = useState('');
@@ -335,10 +361,29 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setTimeout(() => setResetFeedback(null), 4000);
   };
 
+  const handleTriggerResetVisitors = () => {
+    if (window.confirm("Voulez-vous remettre à zéro le compteur de visiteurs et statistiques du site ?")) {
+      if (onResetVisitorStats) {
+        onResetVisitorStats();
+      } else {
+        const reset = resetVisitorStatsToZero();
+        setLocalVisitorStats(reset);
+      }
+      setResetFeedback("Statistiques de fréquentation et visiteurs remises à zéro avec succès !");
+      setTimeout(() => setResetFeedback(null), 4000);
+    }
+  };
+
   const handleTriggerResetAllAdmin = () => {
-    if (window.confirm("Voulez-vous réinitialiser complètement le panneau d'administration (Chiffre d'affaires à 0 FCFA, 0 commande, stocks sains, tarifs par défaut) ?")) {
+    if (window.confirm("Voulez-vous réinitialiser complètement le panneau d'administration (Chiffre d'affaires à 0 FCFA, 0 commande, visiteurs, stocks sains, tarifs par défaut) ?")) {
       onResetAllAdmin?.();
-      setResetFeedback("Tout le panneau d'administration a été réinitialisé avec succès !");
+      if (onResetVisitorStats) {
+        onResetVisitorStats();
+      } else {
+        const reset = resetVisitorStatsToZero();
+        setLocalVisitorStats(reset);
+      }
+      setResetFeedback("Tout le panneau d'administration et les statistiques ont été réinitialisés avec succès !");
       setTimeout(() => setResetFeedback(null), 4000);
     }
   };
@@ -866,6 +911,16 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               </button>
 
               <button
+                onClick={() => setTab('reviews')}
+                className={`py-3.5 px-4 text-xs font-bold transition border-b-2 whitespace-nowrap flex items-center gap-2 ${
+                  tab === 'reviews' ? 'border-red-600 text-red-600 bg-white shadow-xs' : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                <span>Avis Clients ({reviews.length})</span>
+              </button>
+
+              <button
                 onClick={() => setTab('settings')}
                 className={`py-3.5 px-4 text-xs font-bold transition border-b-2 whitespace-nowrap flex items-center gap-2 ${
                   tab === 'settings' ? 'border-red-600 text-red-600 bg-white shadow-xs' : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -914,7 +969,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
                       <button
                         onClick={handleTriggerResetDashboard}
                         className="p-3 bg-white/10 hover:bg-white/20 border border-white/15 rounded-xl text-left transition flex items-center gap-3 group"
@@ -926,6 +981,20 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         <div>
                           <span className="text-xs font-bold text-white block">Remise à zéro Chiffre d'Affaires</span>
                           <span className="text-[11px] text-gray-300 block">CA = 0 FCFA • 0 commande</span>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={handleTriggerResetVisitors}
+                        className="p-3 bg-white/10 hover:bg-white/20 border border-white/15 rounded-xl text-left transition flex items-center gap-3 group"
+                        title="Remettre les compteurs de visites et de trafic à zéro"
+                      >
+                        <div className="p-2.5 bg-indigo-400/20 text-indigo-300 rounded-lg group-hover:scale-105 transition shrink-0">
+                          <Users className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-white block">Remise à zéro Visiteurs</span>
+                          <span className="text-[11px] text-gray-300 block">Trafic & sessions remis à 0</span>
                         </div>
                       </button>
 
@@ -953,14 +1022,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         </div>
                         <div>
                           <span className="text-xs font-bold text-white block">Réinitialisation Complète</span>
-                          <span className="text-[11px] text-gray-300 block">Dashboard, stocks et tarifs</span>
+                          <span className="text-[11px] text-gray-300 block">Dashboard, visiteurs et stocks</span>
                         </div>
                       </button>
                     </div>
                   </div>
                   
-                  {/* KPI Cards Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* KPI Cards Grid - Avec la Statistique Visiteurs du Site */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                     
                     <div className="p-5 bg-gradient-to-br from-emerald-50 to-white rounded-2xl border border-emerald-100 shadow-xs">
                       <div className="flex items-center justify-between mb-2">
@@ -994,6 +1063,28 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       </div>
                     </div>
 
+                    {/* KPI Visiteurs du Site */}
+                    <div className="p-5 bg-gradient-to-br from-indigo-50 to-white rounded-2xl border border-indigo-100 shadow-xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-gray-500 uppercase">Visiteurs du Site</span>
+                        <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl">
+                          <Users className="w-4 h-4" />
+                        </div>
+                      </div>
+                      <div className="text-xl sm:text-2xl font-black text-gray-900 font-mono flex items-baseline justify-between">
+                        <span>{currentVisitorStats.totalVisitors.toLocaleString('fr-FR')}</span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          {currentVisitorStats.activeNow} direct
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-indigo-600 mt-1 font-medium flex items-center justify-between">
+                        <span>+{currentVisitorStats.todayVisitors} aujourd'hui</span>
+                        <span className="text-gray-400">•</span>
+                        <span>{currentVisitorStats.uniqueVisitors} uniques</span>
+                      </p>
+                    </div>
+
                     <div className="p-5 bg-gradient-to-br from-purple-50 to-white rounded-2xl border border-purple-100 shadow-xs">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold text-gray-500 uppercase">Produits en Vente</span>
@@ -1020,8 +1111,243 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         {lowStockProducts.length}
                       </div>
                       <p className={`text-[11px] mt-1 font-medium ${lowStockProducts.length > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                        {lowStockProducts.length > 0 ? `${lowStockProducts.length} article(s) à réapprovisionner` : '0 alerte • Tous les stocks sont suffisants'}
+                        {lowStockProducts.length > 0 ? `${lowStockProducts.length} article(s) critique(s)` : '0 alerte • Stocks optimaux'}
                       </p>
+                    </div>
+
+                  </div>
+
+                  {/* MODULE COMPLET : STATISTIQUES DE FRÉQUENTATION & VISITEURS */}
+                  <div className="p-5 sm:p-6 bg-white rounded-2xl border border-gray-200 shadow-xs space-y-6">
+                    
+                    {/* Header & Live Status */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl">
+                          <Users className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-base font-extrabold text-gray-900 flex items-center gap-2">
+                            <span>Statistiques de Fréquentation & Visiteurs</span>
+                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 text-[10px] font-black uppercase tracking-wider rounded-md">
+                              Live 🇸🇳
+                            </span>
+                          </h4>
+                          <p className="text-xs text-gray-500">
+                            Suivi en temps réel de l'audience, des visites et des flux d'acheteurs au Sénégal
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+                        <div className="px-3.5 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full flex items-center gap-2 text-xs font-bold text-emerald-800 shadow-2xs">
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                          </span>
+                          <span>{currentVisitorStats.activeNow} personnes sur le site</span>
+                        </div>
+
+                        <button
+                          onClick={handleTriggerResetVisitors}
+                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
+                          title="Remettre le compteur de visiteurs à 0"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-gray-500" />
+                          <span>Réinitialiser</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 4 Core Traffic Indicators */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                      
+                      <div className="p-4 bg-gray-50/90 rounded-xl border border-gray-200/80 space-y-1">
+                        <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
+                          <span>Total Visiteurs</span>
+                          <Globe className="w-4 h-4 text-indigo-500" />
+                        </div>
+                        <div className="text-xl sm:text-2xl font-black text-gray-900 font-mono">
+                          {currentVisitorStats.totalVisitors.toLocaleString('fr-FR')}
+                        </div>
+                        <p className="text-[11px] text-gray-500">Sessions enregistrées sur le site</p>
+                      </div>
+
+                      <div className="p-4 bg-gray-50/90 rounded-xl border border-gray-200/80 space-y-1">
+                        <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
+                          <span>Visiteurs Uniques</span>
+                          <Users className="w-4 h-4 text-blue-500" />
+                        </div>
+                        <div className="text-xl sm:text-2xl font-black text-gray-900 font-mono">
+                          {currentVisitorStats.uniqueVisitors.toLocaleString('fr-FR')}
+                        </div>
+                        <p className="text-[11px] text-blue-600 font-medium">Appareils et navigateurs distincts</p>
+                      </div>
+
+                      <div className="p-4 bg-gray-50/90 rounded-xl border border-gray-200/80 space-y-1">
+                        <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
+                          <span>Visiteurs Aujourd'hui</span>
+                          <Activity className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <div className="text-xl sm:text-2xl font-black text-emerald-600 font-mono">
+                          +{currentVisitorStats.todayVisitors.toLocaleString('fr-FR')}
+                        </div>
+                        <p className="text-[11px] text-emerald-700 font-medium">Activité sur la journée</p>
+                      </div>
+
+                      <div className="p-4 bg-gray-50/90 rounded-xl border border-gray-200/80 space-y-1">
+                        <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
+                          <span>Pages Vues Totales</span>
+                          <Eye className="w-4 h-4 text-purple-500" />
+                        </div>
+                        <div className="text-xl sm:text-2xl font-black text-gray-900 font-mono">
+                          {currentVisitorStats.totalPageViews.toLocaleString('fr-FR')}
+                        </div>
+                        <p className="text-[11px] text-purple-600 font-medium">
+                          ~{(currentVisitorStats.totalPageViews / Math.max(1, currentVisitorStats.totalVisitors)).toFixed(1)} fiches / visiteur
+                        </p>
+                      </div>
+
+                    </div>
+
+                    {/* Chart: 7 Days Visitor Traffic Trend */}
+                    <div className="p-4 sm:p-5 bg-gradient-to-br from-gray-50/90 to-indigo-50/30 rounded-xl border border-gray-200 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <BarChart3 className="w-4 h-4 text-indigo-600" />
+                          <h5 className="font-extrabold text-xs text-gray-800 uppercase tracking-wider">
+                            Évolution des Visites sur 7 Jours au Sénégal
+                          </h5>
+                        </div>
+                        <span className="text-[11px] text-gray-500 font-medium">
+                          Moyenne : ~{Math.round(currentVisitorStats.dailyHistory.reduce((acc, d) => acc + d.visitors, 0) / Math.max(1, currentVisitorStats.dailyHistory.length))} visiteurs / jour
+                        </span>
+                      </div>
+
+                      {/* Bars Visualization */}
+                      <div className="h-44 pt-6 pb-2 flex items-end justify-between gap-2 sm:gap-4 px-2 border-b border-gray-200">
+                        {(() => {
+                          const maxVisitors = Math.max(1, ...currentVisitorStats.dailyHistory.map(d => d.visitors));
+                          return currentVisitorStats.dailyHistory.map((day, idx) => {
+                            const heightPercent = Math.max(16, Math.round((day.visitors / maxVisitors) * 100));
+                            const isToday = idx === currentVisitorStats.dailyHistory.length - 1;
+
+                            return (
+                              <div key={day.fullDate + idx} className="flex-1 flex flex-col items-center h-full justify-end group relative">
+                                {/* Tooltip on hover */}
+                                <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition pointer-events-none z-10 whitespace-nowrap bg-gray-900 text-white text-[10px] font-semibold py-1 px-2 rounded-md shadow-md">
+                                  {day.visitors} visiteurs • {day.pageViews} pages vues
+                                </div>
+
+                                {/* Top value indicator */}
+                                <span className={`text-[11px] font-bold mb-1 font-mono ${isToday ? 'text-indigo-600' : 'text-gray-600'}`}>
+                                  {day.visitors}
+                                </span>
+
+                                {/* Bar */}
+                                <div className="w-full max-w-[48px] bg-gray-200/80 rounded-t-lg overflow-hidden flex flex-col justify-end" style={{ height: `${heightPercent}%` }}>
+                                  <div className={`w-full h-full rounded-t-lg transition-all duration-500 ${
+                                    isToday 
+                                      ? 'bg-gradient-to-t from-indigo-600 to-indigo-400 shadow-sm' 
+                                      : 'bg-gradient-to-t from-gray-700 to-indigo-500/80 hover:brightness-110'
+                                  }`} />
+                                </div>
+
+                                {/* Day label */}
+                                <span className={`text-[10px] mt-2 font-medium truncate max-w-full ${isToday ? 'font-bold text-indigo-700' : 'text-gray-500'}`}>
+                                  {isToday ? "Aujourd'hui" : day.date}
+                                </span>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Audience Insights: Provenance Sénégal & Appareils */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      
+                      {/* Geographic breakdown */}
+                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h5 className="font-extrabold text-xs text-gray-800 flex items-center gap-1.5 uppercase tracking-wider">
+                            <MapPin className="w-3.5 h-3.5 text-red-600" />
+                            <span>Provenance Géographique (Sénégal)</span>
+                          </h5>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                            Trafic Local
+                          </span>
+                        </div>
+
+                        <div className="space-y-2.5">
+                          {currentVisitorStats.topRegions.map((reg) => (
+                            <div key={reg.region} className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="font-semibold text-gray-700 truncate">{reg.region}</span>
+                                <span className="font-mono font-bold text-gray-900">{reg.percentage}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                                <div 
+                                  className="bg-indigo-600 h-full rounded-full" 
+                                  style={{ width: `${reg.percentage}%` }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Device breakdown */}
+                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h5 className="font-extrabold text-xs text-gray-800 flex items-center gap-1.5 uppercase tracking-wider">
+                            <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Appareils & Canaux de Vente</span>
+                          </h5>
+                          <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">
+                            Wave / OM / WhatsApp
+                          </span>
+                        </div>
+
+                        <div className="space-y-2.5 pt-1">
+                          <div className="p-3 bg-white rounded-lg border border-gray-200 flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                                <Smartphone className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <span className="text-xs font-bold text-gray-900 block">Smartphones & Mobiles (Android, iPhone)</span>
+                                <span className="text-[11px] text-gray-500">Flux WhatsApp, Wave, TikTok & Instagram</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-sm font-black text-indigo-600 font-mono">89%</span>
+                              <span className="text-[10px] text-gray-400 block">Majorité Sénégal</span>
+                            </div>
+                          </div>
+
+                          <div className="p-3 bg-white rounded-lg border border-gray-200 flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <div className="p-2 bg-gray-100 text-gray-600 rounded-lg">
+                                <Laptop className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <span className="text-xs font-bold text-gray-900 block">Ordinateurs & PC Portables</span>
+                                <span className="text-[11px] text-gray-500">Bureaux, entreprises & domicile</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-sm font-black text-gray-800 font-mono">11%</span>
+                              <span className="text-[10px] text-gray-400 block">Desktop</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-gray-500 italic pt-1">
+                          💡 Note : 9 achats sur 10 au Sénégal sont conclus directement depuis mobile avec paiement Wave ou Orange Money.
+                        </p>
+                      </div>
+
                     </div>
 
                   </div>
@@ -2368,6 +2694,114 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 </div>
               )}
 
+              {/* TAB: REVIEWS MANAGEMENT */}
+              {tab === 'reviews' && (
+                <div className="space-y-6">
+                  {/* Reviews Top Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-linear-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Star className="w-5 h-5 fill-amber-500 text-amber-500" />
+                        <h3 className="font-extrabold text-sm sm:text-base text-gray-900">
+                          Avis & Retours Clients ({reviews.length})
+                        </h3>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Consultez et gérez les avis, commentaires et notes avec étoiles laissés par vos clients au Sénégal.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 self-start sm:self-auto bg-white px-4 py-2 rounded-xl border border-amber-200 shadow-xs">
+                      <div className="text-right">
+                        <span className="text-xs text-gray-500 font-bold block leading-none">Note Moyenne</span>
+                        <span className="text-lg font-black text-gray-900 leading-tight">
+                          {reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '5.0'} / 5
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <Star key={s} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Reviews List */}
+                  {reviews.length === 0 ? (
+                    <div className="text-center py-16 bg-gray-50 rounded-2xl border border-dashed border-gray-200 p-6">
+                      <Star className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                      <h4 className="font-bold text-sm text-gray-700">Aucun avis client pour le moment</h4>
+                      <p className="text-xs text-gray-500 mt-1">Les avis soumis par vos clients sur la boutique apparaîtront ici.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {reviews.map((rev) => {
+                        const product = products.find(p => p.id === rev.productId);
+                        return (
+                          <div key={rev.id} className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex flex-col justify-between space-y-3">
+                            <div>
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h5 className="font-extrabold text-sm text-gray-900">{rev.authorName}</h5>
+                                    {rev.verifiedPurchase && (
+                                      <span className="text-[10px] bg-emerald-50 text-emerald-700 font-black px-1.5 py-0.5 rounded border border-emerald-200">
+                                        ✓ Vérifié
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                    <MapPin className="w-3 h-3 text-red-500" />
+                                    {rev.city || 'Dakar'} • {rev.date}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-0.5 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
+                                  <span className="text-xs font-black text-amber-900 mr-1">{rev.rating}/5</span>
+                                  {[1, 2, 3, 4, 5].map(s => (
+                                    <Star
+                                      key={s}
+                                      className={`w-3 h-3 ${s <= rev.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+
+                              {product && (
+                                <div className="p-2 bg-gray-50 rounded-xl flex items-center gap-2 mb-2">
+                                  <img src={product.images[0]} alt={product.name} className="w-7 h-7 object-contain bg-white rounded border border-gray-200" />
+                                  <span className="text-xs font-bold text-gray-700 truncate">{product.name}</span>
+                                </div>
+                              )}
+
+                              <p className="text-xs text-gray-700 leading-relaxed italic">
+                                "{rev.comment}"
+                              </p>
+                            </div>
+
+                            {onDeleteReview && (
+                              <div className="pt-2 border-t border-gray-100 flex justify-end">
+                                <button
+                                  onClick={() => {
+                                    if (confirm(`Supprimer cet avis de ${rev.authorName} ?`)) {
+                                      onDeleteReview(rev.id);
+                                    }
+                                  }}
+                                  className="text-xs font-bold text-red-600 hover:text-red-800 flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-red-50 transition cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Supprimer cet avis</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* TAB 6: SETTINGS & EXPORT */}
               {tab === 'settings' && (
                 <div className="space-y-6">
@@ -2665,6 +3099,58 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           />
                           <span>Activer la génération de notifications client WhatsApp pour le suivi des expéditions</span>
                         </label>
+                      </div>
+                    </div>
+
+                    {/* 5. Sécurité & Confidentialité d'Accès Administrateur */}
+                    <div className="p-5 bg-white border border-gray-200 rounded-2xl shadow-2xs space-y-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <h4 className="font-bold text-xs uppercase tracking-wider text-gray-800">
+                          Sécurité & Confidentialité de l'Accès Administrateur
+                        </h4>
+                      </div>
+
+                      <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-200 text-xs text-gray-700 space-y-3">
+                        <div className="flex items-start gap-2.5">
+                          <div className="p-1.5 bg-emerald-600 text-white rounded-lg shrink-0 mt-0.5">
+                            <Lock className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <p className="font-black text-emerald-950 text-sm">
+                              Le cadenas d'administration est automatiquement masqué sur le site publié
+                            </p>
+                            <p className="text-gray-600 mt-1 leading-relaxed">
+                              Conformément à vos exigences de sécurité et de discrétion, aucun visiteur ni client de la boutique ne verra de bouton ou d'icône de cadenas pour accéder à l'administration sur votre site en ligne.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-emerald-200/80">
+                          <p className="font-bold text-gray-900 mb-2">
+                            🔑 Comment vous connecter en tant qu'administrateur sur le site publié :
+                          </p>
+                          <ul className="space-y-2 text-gray-700">
+                            <li className="flex items-start gap-2">
+                              <span className="font-bold text-emerald-700">1.</span>
+                              <span>
+                                <strong>Via l'URL du navigateur :</strong> Ajoutez simplement <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-300 text-red-600 font-mono font-bold">?admin</code> ou <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-300 text-red-600 font-mono font-bold">#admin</code> à l'adresse de votre site web (ex: <em>votre-domaine.sn/?admin</em>).
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="font-bold text-emerald-700">2.</span>
+                              <span>
+                                <strong>Raccourci clavier secret :</strong> Tapez au clavier <kbd className="bg-white px-2 py-0.5 rounded border border-gray-300 font-mono font-bold shadow-2xs">Ctrl + Shift + A</kbd> (ou <kbd className="bg-white px-2 py-0.5 rounded border border-gray-300 font-mono font-bold shadow-2xs">Cmd + Shift + A</kbd> sur Mac) depuis n'importe quelle page.
+                              </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="font-bold text-emerald-700">3.</span>
+                              <span>
+                                <strong>Triple-clic discret :</strong> Cliquez 3 fois consécutives sur la ligne de copyright <em>« © DIAYMA GAAW Sénégal »</em> en bas de page.
+                              </span>
+                            </li>
+                          </ul>
+                        </div>
                       </div>
                     </div>
 

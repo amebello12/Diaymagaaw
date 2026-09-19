@@ -25,6 +25,45 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenAdmin, setting
   const email = settings?.email || STORE_EMAIL;
   const address = settings?.address || 'Dakar, Sénégal (Livraisons Dakar & toutes les régions)';
 
+  // Règle absolue : Le cadenas ne s'affiche jamais sur le site publié en production.
+  // En local de développement, il n'apparaît que si expressément activé dans les réglages.
+  const isProduction = import.meta.env.PROD;
+  const showAdminLock = !isProduction && Boolean(settings?.showAdminLockInFooter);
+
+  // Détection secrète de triple-clic sur le copyright pour l'administrateur (sans composant visuel supplémentaire)
+  const copyrightClicksRef = React.useRef(0);
+  const clickTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleSecretCopyrightClick = () => {
+    copyrightClicksRef.current += 1;
+
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+    }
+
+    if (copyrightClicksRef.current >= 3) {
+      copyrightClicksRef.current = 0;
+      if (onOpenAdmin) {
+        // Exécution différée en dehors du cycle d'événement React
+        setTimeout(() => {
+          onOpenAdmin();
+        }, 0);
+      }
+    } else {
+      clickTimeoutRef.current = setTimeout(() => {
+        copyrightClicksRef.current = 0;
+      }, 1500);
+    }
+  };
+
   return (
     <footer className="bg-gray-950 text-gray-300 pt-16 pb-12 border-t border-gray-900 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
@@ -104,6 +143,19 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenAdmin, setting
                 <MessageCircle className="w-4 h-4" />
               </a>
             </div>
+
+            {/* Moyens de Paiement Horizontaux au Sénégal : Wave sous FB IG TT, Orange Money à droite, Free Money, À la livraison */}
+            <div className="pt-4 space-y-2">
+              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                Moyens de paiement acceptés :
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                {settings?.enableWave !== false && <WaveLogo size="sm" />}
+                {settings?.enableOrangeMoney !== false && <OrangeMoneyLogo size="sm" />}
+                {settings?.enableFreeMoney !== false && <FreeMoneyLogo size="sm" />}
+                {settings?.enableCashOnDelivery !== false && <CashOnDeliveryLogo size="sm" />}
+              </div>
+            </div>
           </div>
 
           {/* Col 3: Rayons / Collections */}
@@ -180,6 +232,14 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenAdmin, setting
               </li>
               <li>
                 <button
+                  onClick={() => onNavigate('reviews', null)}
+                  className="text-amber-400 font-bold hover:text-amber-300 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <span>⭐ Avis Clients & Témoignages</span>
+                </button>
+              </li>
+              <li>
+                <button
                   onClick={() => onNavigate('faq', null)}
                   className="hover:text-white transition cursor-pointer"
                 >
@@ -213,23 +273,16 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenAdmin, setting
             </ul>
           </div>
 
-          {/* Col 5: Paiements Officiels Sénégal */}
+          {/* Col 5: Commandes & Assistance WhatsApp */}
           <div className="space-y-4">
             <h4 className="text-white font-extrabold text-xs uppercase tracking-wider">
-              Paiements Mobiles Officiels
+              Commandes & Assistance
             </h4>
-            <p className="text-xs text-gray-400">
-              Réglez en toute sérénité au Sénégal avec nos partenaires officiels :
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Une question ou une commande urgente ? Notre équipe basée à Dakar vous répond immédiatement :
             </p>
 
-            <div className="flex flex-col items-start gap-2 pt-1">
-              {settings?.enableWave !== false && <WaveLogo size="sm" />}
-              {settings?.enableOrangeMoney !== false && <OrangeMoneyLogo size="sm" />}
-              {settings?.enableFreeMoney !== false && <FreeMoneyLogo size="sm" />}
-              {settings?.enableCashOnDelivery !== false && <CashOnDeliveryLogo size="sm" />}
-            </div>
-
-            <div className="pt-2">
+            <div className="pt-1">
               <a
                 href={`https://wa.me/${rawPhone}?text=${encodeURIComponent(`Bonjour ${settings?.storeName || 'DIAYMA GAAW'}, je souhaite passer commande.`)}`}
                 target="_blank"
@@ -240,6 +293,11 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenAdmin, setting
                 <span>Assistance WhatsApp 7j/7</span>
               </a>
             </div>
+
+            <div className="p-3 bg-gray-900/70 rounded-xl border border-gray-800/80 text-[11px] text-gray-400 space-y-1">
+              <p className="font-semibold text-gray-300">⚡ Service Commercial Sénégal</p>
+              <p>Livraison rapide Dakar (2h-24h) et toutes régions du Sénégal (24h-48h).</p>
+            </div>
           </div>
 
         </div>
@@ -247,17 +305,21 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenAdmin, setting
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-gray-900 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-4 text-xs text-gray-500">
           <div className="flex flex-col items-center sm:items-start gap-1">
-            <p>
+            <p
+              onClick={handleSecretCopyrightClick}
+              className="cursor-default select-none transition-colors hover:text-gray-400"
+              title="DIAYMA GAAW Sénégal"
+            >
               © {new Date().getFullYear()} DIAYMA GAAW Sénégal. Tous droits réservés.
             </p>
             
-            {/* Cadenas discret / masqué pour l'accès administration */}
-            {onOpenAdmin && (
+            {/* Cadenas d'administration : Totalement masqué sur le site publié */}
+            {showAdminLock && onOpenAdmin && (
               <button
                 type="button"
                 onClick={onOpenAdmin}
-                className="opacity-15 hover:opacity-100 transition-opacity duration-300 p-1 text-gray-700 hover:text-gray-400 cursor-pointer flex items-center gap-1 group mt-0.5"
-                title="Accès Administrateur DIAYMA GAAW"
+                className="opacity-20 hover:opacity-100 transition-opacity duration-300 p-1 text-gray-700 hover:text-gray-400 cursor-pointer flex items-center gap-1 group mt-0.5"
+                title="Accès Administrateur (Visible uniquement en développement local)"
                 aria-label="Accès Administrateur"
               >
                 <Lock className="w-3 h-3 text-gray-700 group-hover:text-red-500 transition-colors" />

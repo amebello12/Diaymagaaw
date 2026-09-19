@@ -3,6 +3,7 @@ import { Product, Category } from '../types';
 import { ProductCard } from './ProductCard';
 import { Filter, SlidersHorizontal, ArrowUpDown, Flame, Check, X } from 'lucide-react';
 import { formatFCFA } from '../utils/currency';
+import { ActiveFlame } from './ActiveFlame';
 
 interface ShopCatalogProps {
   products: Product[];
@@ -84,8 +85,9 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
                 <span> / <strong className="text-red-600">{activeCategoryObject.name}</strong></span>
               )}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 font-display">
-              {activeCategoryObject ? activeCategoryObject.name : 'Tous les Produits au Sénégal'}
+            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 font-display flex items-center gap-2">
+              {selectedCategorySlug === 'promotions' && <ActiveFlame size="md" />}
+              <span>{activeCategoryObject ? activeCategoryObject.name : 'Tous les Produits au Sénégal'}</span>
             </h1>
             <p className="text-xs text-gray-500 mt-1">
               Affichage de <strong>{filteredProducts.length}</strong> article(s) disponible(s)
@@ -204,7 +206,10 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
                   onChange={(e) => setOnlyPromos(e.target.checked)}
                   className="rounded text-red-600 focus:ring-red-500"
                 />
-                <span className="font-semibold text-gray-700">Promotions uniquement</span>
+                <span className="font-semibold text-gray-700 flex items-center gap-1.5">
+                  <ActiveFlame size="xs" glow={false} />
+                  <span>Promotions uniquement</span>
+                </span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">

@@ -18,8 +18,10 @@ import {
   ActiveView,
   StoreSettings,
   Review,
-  DeliveryZone
+  DeliveryZone,
+  VisitorStats
 } from './types';
+import { getVisitorStats, recordVisitHit, resetVisitorStatsToZero } from './utils/visitorTracker';
 
 // Component Imports
 import { Header } from './components/Header';
@@ -27,6 +29,7 @@ import { HeroBanner } from './components/HeroBanner';
 import { CategoryGrid } from './components/CategoryGrid';
 import { FlashSaleSection } from './components/FlashSaleSection';
 import { FeaturedProducts } from './components/FeaturedProducts';
+import { ReviewsSection } from './components/ReviewsSection';
 import { TrustBadges } from './components/TrustBadges';
 import { ProductDetailModal } from './components/ProductDetailModal';
 import { CartDrawer } from './components/CartDrawer';
@@ -133,8 +136,17 @@ export default function App() {
     }
   });
 
+  // Statistiques de Fréquentation & Visiteurs du Site
+  const [visitorStats, setVisitorStats] = useState<VisitorStats>(() => getVisitorStats());
+
   // 2. Navigation & Modal UI States
   const [activeView, setActiveView] = useState<ActiveView>('home');
+
+  // Enregistrement des visites à chaque changement de page / navigation
+  useEffect(() => {
+    const updated = recordVisitHit(activeView);
+    setVisitorStats(updated);
+  }, [activeView]);
   const [selectedCategorySlug, setSelectedCategorySlug] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -146,6 +158,49 @@ export default function App() {
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [shopifyExportOpen, setShopifyExportOpen] = useState(false);
+
+  // Détection URL et raccourci clavier secret pour l'accès administrateur sur le site publié
+  useEffect(() => {
+    const checkAdminFromUrl = () => {
+      try {
+        const search = window.location.search.toLowerCase();
+        const hash = window.location.hash.toLowerCase();
+        const pathname = window.location.pathname.toLowerCase();
+        if (
+          search.includes('admin') || 
+          hash === '#admin' || 
+          pathname.endsWith('/admin') ||
+          pathname === '/admin'
+        ) {
+          setActiveView('admin');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    checkAdminFromUrl();
+    window.addEventListener('hashchange', checkAdminFromUrl);
+    window.addEventListener('popstate', checkAdminFromUrl);
+
+    // Raccourci clavier universel : Ctrl + Shift + A (ou Cmd + Shift + A sur Mac)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault();
+        setActiveView('admin');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('hashchange', checkAdminFromUrl);
+      window.removeEventListener('popstate', checkAdminFromUrl);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // Sync products to local storage
   useEffect(() => {
@@ -199,6 +254,44 @@ export default function App() {
       date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
     };
     setReviews(prev => [fullReview, ...prev]);
+
+    // Update product rating and reviewsCount if linked to an existing product
+    if (newRev.productId && newRev.productId !== 'general') {
+      setProducts(prevProds => {
+        const updated = prevProds.map(p => {
+          if (p.id === newRev.productId) {
+            const currentCount = p.reviewsCount || 0;
+            const currentRating = p.rating || 5.0;
+            const newCount = currentCount + 1;
+            const newRating = Number(((currentRating * currentCount + newRev.rating) / newCount).toFixed(1));
+            return {
+              ...p,
+              reviewsCount: newCount,
+              rating: newRating
+            };
+          }
+          return p;
+        });
+        try {
+          localStorage.setItem('dg_products', JSON.stringify(updated));
+        } catch {
+          // ignore
+        }
+        return updated;
+      });
+    }
+  };
+
+  const handleDeleteReview = (reviewId: string) => {
+    setReviews(prev => {
+      const updated = prev.filter(r => r.id !== reviewId);
+      try {
+        localStorage.setItem('dg_reviews', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
   };
 
   // Sync user to local storage
@@ -420,11 +513,18 @@ export default function App() {
     });
   };
 
+  const handleResetVisitorStats = () => {
+    const reset = resetVisitorStatsToZero();
+    setVisitorStats(reset);
+  };
+
   const handleResetAllAdmin = () => {
     setOrders([]);
     setProducts(INITIAL_PRODUCTS);
     setDeliveryZones(INITIAL_DELIVERY_ZONES);
     setPromoCodes(INITIAL_PROMO_CODES);
+    const resetVis = resetVisitorStatsToZero();
+    setVisitorStats(resetVis);
     try {
       localStorage.setItem('dg_orders', JSON.stringify([]));
       localStorage.setItem('dg_products', JSON.stringify(INITIAL_PRODUCTS));
@@ -497,9 +597,30 @@ export default function App() {
               onViewCatalog={() => handleNavigate('shop', null)}
             />
 
+            {/* Customer Reviews & Testimonials Section */}
+            <ReviewsSection
+              reviews={reviews}
+              products={products}
+              onAddReview={handleAddReview}
+              onSelectProduct={setSelectedProduct}
+              onNavigate={handleNavigate}
+            />
+
             {/* Trust Badges: Payment, Delivery, Guarantees */}
             <TrustBadges onNavigate={handleNavigate} />
           </div>
+        )}
+
+        {/* VIEW: REVIEWS / AVIS CLIENTS */}
+        {activeView === 'reviews' && (
+          <ReviewsSection
+            reviews={reviews}
+            products={products}
+            onAddReview={handleAddReview}
+            onSelectProduct={setSelectedProduct}
+            onNavigate={handleNavigate}
+            isFullPage={true}
+          />
         )}
 
         {/* VIEW: SHOP / CATALOGUE */}
@@ -575,6 +696,10 @@ export default function App() {
             onResetDashboardStats={handleResetDashboardStats}
             onResetStockAlerts={handleResetStockAlerts}
             onResetAllAdmin={handleResetAllAdmin}
+            reviews={reviews}
+            onDeleteReview={handleDeleteReview}
+            visitorStats={visitorStats}
+            onResetVisitorStats={handleResetVisitorStats}
           />
         )}
 
@@ -689,6 +814,10 @@ export default function App() {
           onResetDashboardStats={handleResetDashboardStats}
           onResetStockAlerts={handleResetStockAlerts}
           onResetAllAdmin={handleResetAllAdmin}
+          reviews={reviews}
+          onDeleteReview={handleDeleteReview}
+          visitorStats={visitorStats}
+          onResetVisitorStats={handleResetVisitorStats}
         />
       )}
 
