@@ -3,14 +3,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default deny-all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     // Helper functions
     function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() > 0 && id.size() <= 128;
     }
 
     function incoming() {
@@ -34,99 +29,96 @@ service cloud.firestore {
 
     function isValidProduct(data) {
       return data.id is string && data.id.size() <= 128 &&
-             data.name is string && data.name.size() > 0 && data.name.size() <= 300 &&
-             data.category is string && data.category.size() <= 100 &&
-             data.price is number && data.price >= 0 &&
-             data.stock is number && data.stock >= 0 &&
-             data.description is string && data.description.size() <= 5000;
+             data.name is string && data.name.size() > 0 && data.name.size() <= 500 &&
+             data.price is number && data.price >= 0;
     }
 
     function isValidCategory(data) {
       return data.id is string && data.id.size() <= 128 &&
-             data.name is string && data.name.size() > 0 && data.name.size() <= 150 &&
-             data.slug is string && data.slug.size() <= 150;
+             data.name is string && data.name.size() > 0 && data.name.size() <= 200;
     }
 
     function isValidOrder(data) {
       return data.id is string && data.id.size() <= 128 &&
-             data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 200 &&
-             data.customerPhone is string && data.customerPhone.size() > 0 && data.customerPhone.size() <= 50 &&
-             data.total is number && data.total >= 0 &&
-             data.items is list && data.items.size() > 0 && data.items.size() <= 100;
+             data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 300 &&
+             data.customerPhone is string && data.customerPhone.size() > 0 && data.customerPhone.size() <= 100 &&
+             data.total is number && data.total >= 0;
     }
 
     function isValidReview(data) {
       return data.id is string && data.id.size() <= 128 &&
-             data.productId is string && data.productId.size() <= 100 &&
-             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() <= 150 &&
-             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
-             data.comment is string && data.comment.size() > 0 && data.comment.size() <= 2000;
+             data.productId is string && data.productId.size() <= 128 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() <= 200 &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5;
     }
 
     function isValidDeliveryZone(data) {
       return data.id is string && data.id.size() <= 128 &&
-             data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 300 &&
              data.price is number && data.price >= 0;
     }
 
     function isValidPromo(data) {
-      return data.code is string && data.code.size() > 0 && data.code.size() <= 50 &&
+      return data.code is string && data.code.size() > 0 && data.code.size() <= 100 &&
              data.discountPercent is number && data.discountPercent >= 0 && data.discountPercent <= 100;
     }
 
     function isValidSettings(data) {
-      return data.storeName is string && data.storeName.size() > 0 && data.storeName.size() <= 150 &&
-             data.phone is string && data.phone.size() <= 50 &&
-             data.whatsappPhone is string && data.whatsappPhone.size() <= 50;
+      return data.storeName is string && data.storeName.size() > 0 && data.storeName.size() <= 200;
     }
 
-    // Products collection (synchronized catalog across all devices)
+    // Products collection (public catalog with synchronized updates across all devices)
     match /products/{productId} {
-      allow read: if isValidId(productId);
-      allow create: if isValidId(productId) && isValidProduct(incoming()) && (isAdmin() || true);
-      allow update: if isValidId(productId) && isValidProduct(incoming()) && (isAdmin() || true);
-      allow delete: if isValidId(productId) && (isAdmin() || true);
+      allow get, list: if true;
+      allow create: if isValidId(productId) && isValidProduct(incoming());
+      allow update: if isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isValidId(productId);
     }
 
     // Categories
     match /categories/{categoryId} {
-      allow read: if isValidId(categoryId);
-      allow create, update: if isValidId(categoryId) && isValidCategory(incoming()) && (isAdmin() || true);
-      allow delete: if isValidId(categoryId) && (isAdmin() || true);
+      allow get, list: if true;
+      allow create, update: if isValidId(categoryId) && isValidCategory(incoming());
+      allow delete: if isValidId(categoryId);
     }
 
     // Orders
     match /orders/{orderId} {
-      allow read: if isValidId(orderId);
+      allow get, list: if true;
       allow create: if isValidId(orderId) && isValidOrder(incoming());
-      allow update, delete: if isValidId(orderId) && (isAdmin() || true);
+      allow update, delete: if isValidId(orderId);
     }
 
     // Reviews
     match /reviews/{reviewId} {
-      allow read: if isValidId(reviewId);
+      allow get, list: if true;
       allow create: if isValidId(reviewId) && isValidReview(incoming());
-      allow update, delete: if isValidId(reviewId) && (isAdmin() || true);
+      allow update, delete: if isValidId(reviewId);
     }
 
     // Delivery Zones
     match /delivery_zones/{zoneId} {
-      allow read: if isValidId(zoneId);
-      allow create, update: if isValidId(zoneId) && isValidDeliveryZone(incoming()) && (isAdmin() || true);
-      allow delete: if isValidId(zoneId) && (isAdmin() || true);
+      allow get, list: if true;
+      allow create, update: if isValidId(zoneId) && isValidDeliveryZone(incoming());
+      allow delete: if isValidId(zoneId);
     }
 
     // Promo Codes
     match /promo_codes/{codeId} {
-      allow read: if isValidId(codeId);
-      allow create, update: if isValidId(codeId) && isValidPromo(incoming()) && (isAdmin() || true);
-      allow delete: if isValidId(codeId) && (isAdmin() || true);
+      allow get, list: if true;
+      allow create, update: if isValidId(codeId) && isValidPromo(incoming());
+      allow delete: if isValidId(codeId);
     }
 
     // Store Settings
     match /settings/{settingId} {
-      allow read: if isValidId(settingId);
-      allow write: if isValidId(settingId) && isValidSettings(incoming()) && (isAdmin() || true);
+      allow get, list: if true;
+      allow write: if isValidId(settingId) && isValidSettings(incoming());
+    }
+
+    // Default deny-all for any other collections
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -106,6 +106,14 @@ function updateSyncStatus(status: 'connected' | 'syncing' | 'offline') {
   syncListeners.forEach(cb => cb(currentSyncStatus, lastSyncDate));
 }
 
+// Helper to strip undefined values so Firestore never rejects mutations
+export function sanitizeForFirestore(obj: any): any {
+  if (obj === undefined) return null;
+  return JSON.parse(JSON.stringify(obj, (key, value) => {
+    return value === undefined ? null : value;
+  }));
+}
+
 // 5. Products Real-time Synchronization (Articles Multi-appareils)
 export function subscribeToProducts(
   onUpdate: (products: Product[]) => void,
@@ -133,6 +141,19 @@ export function subscribeToProducts(
       snapshot.forEach(docSnap => {
         prods.push(docSnap.data() as Product);
       });
+
+      // Sort: Newly created products (timestamp in ID) appear first at the top of the store!
+      prods.sort((a, b) => {
+        const timeA = a.id.startsWith('prod-1') && a.id.length > 8 ? parseInt(a.id.replace('prod-', ''), 10) : 0;
+        const timeB = b.id.startsWith('prod-1') && b.id.length > 8 ? parseInt(b.id.replace('prod-', ''), 10) : 0;
+        if (timeA && timeB) return timeB - timeA;
+        if (timeA) return -1;
+        if (timeB) return 1;
+        const numA = parseInt(a.id.replace('prod-', ''), 10) || 999;
+        const numB = parseInt(b.id.replace('prod-', ''), 10) || 999;
+        return numA - numB;
+      });
+
       onUpdate(prods);
     },
     (error) => {
@@ -148,7 +169,8 @@ export async function saveProductToFirestore(product: Product): Promise<void> {
   const path = `products/${product.id}`;
   updateSyncStatus('syncing');
   try {
-    await setDoc(doc(db, 'products', product.id), product);
+    const cleanProduct = sanitizeForFirestore(product);
+    await setDoc(doc(db, 'products', product.id), cleanProduct);
     updateSyncStatus('connected');
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -176,7 +198,7 @@ export async function seedInitialProducts(initialProducts: Product[]): Promise<v
     const batch = writeBatch(db);
     initialProducts.forEach(prod => {
       const docRef = doc(db, 'products', prod.id);
-      batch.set(docRef, prod);
+      batch.set(docRef, sanitizeForFirestore(prod));
     });
     await batch.commit();
     updateSyncStatus('connected');
@@ -213,7 +235,7 @@ export function subscribeToOrders(onUpdate: (orders: Order[]) => void) {
 export async function saveOrderToFirestore(order: Order): Promise<void> {
   const path = `orders/${order.id}`;
   try {
-    await setDoc(doc(db, 'orders', order.id), order);
+    await setDoc(doc(db, 'orders', order.id), sanitizeForFirestore(order));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
     throw error;
@@ -255,7 +277,7 @@ export function subscribeToDeliveryZones(
         // Seed default delivery zones
         const batch = writeBatch(db);
         initialZones.forEach(z => {
-          batch.set(doc(db, 'delivery_zones', z.id), z);
+          batch.set(doc(db, 'delivery_zones', z.id), sanitizeForFirestore(z));
         });
         batch.commit().catch(() => {});
         onUpdate(initialZones);
@@ -283,7 +305,7 @@ export function subscribeToDeliveryZones(
 export async function saveDeliveryZoneToFirestore(zone: DeliveryZone): Promise<void> {
   const path = `delivery_zones/${zone.id}`;
   try {
-    await setDoc(doc(db, 'delivery_zones', zone.id), zone);
+    await setDoc(doc(db, 'delivery_zones', zone.id), sanitizeForFirestore(zone));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
     throw error;
@@ -314,7 +336,7 @@ export function subscribeToPromoCodes(
       if (snapshot.empty && initialPromos && initialPromos.length > 0) {
         const batch = writeBatch(db);
         initialPromos.forEach(p => {
-          batch.set(doc(db, 'promo_codes', p.code), p);
+          batch.set(doc(db, 'promo_codes', p.code), sanitizeForFirestore(p));
         });
         batch.commit().catch(() => {});
         onUpdate(initialPromos);
@@ -342,7 +364,7 @@ export function subscribeToPromoCodes(
 export async function savePromoCodeToFirestore(promo: PromoCode): Promise<void> {
   const path = `promo_codes/${promo.code}`;
   try {
-    await setDoc(doc(db, 'promo_codes', promo.code), promo);
+    await setDoc(doc(db, 'promo_codes', promo.code), sanitizeForFirestore(promo));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
     throw error;
@@ -373,7 +395,7 @@ export function subscribeToReviews(
       if (snapshot.empty && initialReviews && initialReviews.length > 0) {
         const batch = writeBatch(db);
         initialReviews.forEach(r => {
-          batch.set(doc(db, 'reviews', r.id), r);
+          batch.set(doc(db, 'reviews', r.id), sanitizeForFirestore(r));
         });
         batch.commit().catch(() => {});
         onUpdate(initialReviews);
@@ -401,7 +423,7 @@ export function subscribeToReviews(
 export async function saveReviewToFirestore(review: Review): Promise<void> {
   const path = `reviews/${review.id}`;
   try {
-    await setDoc(doc(db, 'reviews', review.id), review);
+    await setDoc(doc(db, 'reviews', review.id), sanitizeForFirestore(review));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
     throw error;
@@ -432,7 +454,7 @@ export function subscribeToStoreSettings(
       if (docSnap.exists()) {
         onUpdate(docSnap.data() as StoreSettings);
       } else if (initialSettings) {
-        setDoc(docRef, initialSettings).catch(() => {});
+        setDoc(docRef, sanitizeForFirestore(initialSettings)).catch(() => {});
         onUpdate(initialSettings);
       }
     },
@@ -447,7 +469,7 @@ export function subscribeToStoreSettings(
 export async function saveStoreSettingsToFirestore(settings: StoreSettings): Promise<void> {
   const path = 'settings/general';
   try {
-    await setDoc(doc(db, 'settings', 'general'), settings);
+    await setDoc(doc(db, 'settings', 'general'), sanitizeForFirestore(settings));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
     throw error;

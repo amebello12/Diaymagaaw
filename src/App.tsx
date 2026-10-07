@@ -95,8 +95,6 @@ export default function App() {
       if (!isCleaned) {
         setOrders([]);
         localStorage.setItem('dg_orders', JSON.stringify([]));
-        setProducts(INITIAL_PRODUCTS);
-        localStorage.setItem('dg_products', JSON.stringify(INITIAL_PRODUCTS));
         localStorage.setItem('dg_admin_clean_v3', 'true');
       }
     } catch {
