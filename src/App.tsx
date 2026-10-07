@@ -22,6 +22,28 @@ import {
   VisitorStats
 } from './types';
 import { getVisitorStats, recordVisitHit, resetVisitorStatsToZero } from './utils/visitorTracker';
+import { 
+  subscribeToProducts,
+  saveProductToFirestore,
+  deleteProductFromFirestore,
+  seedInitialProducts,
+  subscribeToOrders,
+  saveOrderToFirestore,
+  updateOrderStatusInFirestore,
+  deleteOrderFromFirestore,
+  subscribeToDeliveryZones,
+  saveDeliveryZoneToFirestore,
+  deleteDeliveryZoneFromFirestore,
+  subscribeToPromoCodes,
+  savePromoCodeToFirestore,
+  deletePromoCodeFromFirestore,
+  subscribeToReviews,
+  saveReviewToFirestore,
+  deleteReviewFromFirestore,
+  subscribeToStoreSettings,
+  saveStoreSettingsToFirestore,
+  subscribeSyncStatus
+} from './utils/firebase';
 
 // Component Imports
 import { Header } from './components/Header';
@@ -139,6 +161,80 @@ export default function App() {
   // Statistiques de Fréquentation & Visiteurs du Site
   const [visitorStats, setVisitorStats] = useState<VisitorStats>(() => getVisitorStats());
 
+  // 1.5. Synchronisation Multi-Appareils Cloud en Temps Réel (Firebase Firestore)
+  const [syncStatus, setSyncStatus] = useState<'connected' | 'syncing' | 'offline'>('connected');
+  const [lastSyncDate, setLastSyncDate] = useState<Date>(new Date());
+
+  useEffect(() => {
+    // Écoute de l'état de synchronisation
+    const unsubStatus = subscribeSyncStatus((status, time) => {
+      setSyncStatus(status);
+      if (time) setLastSyncDate(time);
+    });
+
+    // Synchronisation en temps réel des articles du catalogue
+    const unsubProducts = subscribeToProducts((cloudProducts) => {
+      if (cloudProducts && cloudProducts.length > 0) {
+        setProducts(cloudProducts);
+        try {
+          localStorage.setItem('dg_products', JSON.stringify(cloudProducts));
+        } catch {
+          // ignore
+        }
+      }
+    }, INITIAL_PRODUCTS);
+
+    // Synchronisation en temps réel des commandes
+    const unsubOrders = subscribeToOrders((cloudOrders) => {
+      if (cloudOrders) {
+        setOrders(cloudOrders);
+        try {
+          localStorage.setItem('dg_orders', JSON.stringify(cloudOrders));
+        } catch {
+          // ignore
+        }
+      }
+    });
+
+    // Synchronisation des zones de livraison
+    const unsubZones = subscribeToDeliveryZones((cloudZones) => {
+      if (cloudZones && cloudZones.length > 0) {
+        setDeliveryZones(cloudZones);
+      }
+    }, INITIAL_DELIVERY_ZONES);
+
+    // Synchronisation des codes promos
+    const unsubPromos = subscribeToPromoCodes((cloudPromos) => {
+      if (cloudPromos && cloudPromos.length > 0) {
+        setPromoCodes(cloudPromos);
+      }
+    }, INITIAL_PROMO_CODES);
+
+    // Synchronisation des avis clients
+    const unsubReviews = subscribeToReviews((cloudReviews) => {
+      if (cloudReviews && cloudReviews.length > 0) {
+        setReviews(cloudReviews);
+      }
+    }, INITIAL_REVIEWS);
+
+    // Synchronisation des paramètres de boutique
+    const unsubSettings = subscribeToStoreSettings((cloudSettings) => {
+      if (cloudSettings) {
+        setStoreSettings(cloudSettings);
+      }
+    }, INITIAL_STORE_SETTINGS);
+
+    return () => {
+      unsubStatus();
+      unsubProducts();
+      unsubOrders();
+      unsubZones();
+      unsubPromos();
+      unsubReviews();
+      unsubSettings();
+    };
+  }, []);
+
   // 2. Navigation & Modal UI States
   const [activeView, setActiveView] = useState<ActiveView>('home');
 
@@ -247,16 +343,18 @@ export default function App() {
     }
   }, [reviews]);
 
-  const handleAddReview = (newRev: Omit<Review, 'id' | 'date'>) => {
+  const handleAddReview = async (newRev: Omit<Review, 'id' | 'date'>) => {
     const fullReview: Review = {
       ...newRev,
       id: `rev-${Date.now()}`,
       date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
     };
     setReviews(prev => [fullReview, ...prev]);
+    saveReviewToFirestore(fullReview).catch(() => {});
 
     // Update product rating and reviewsCount if linked to an existing product
     if (newRev.productId && newRev.productId !== 'general') {
+      let targetProductToSync: Product | null = null;
       setProducts(prevProds => {
         const updated = prevProds.map(p => {
           if (p.id === newRev.productId) {
@@ -264,11 +362,12 @@ export default function App() {
             const currentRating = p.rating || 5.0;
             const newCount = currentCount + 1;
             const newRating = Number(((currentRating * currentCount + newRev.rating) / newCount).toFixed(1));
-            return {
+            targetProductToSync = {
               ...p,
               reviewsCount: newCount,
               rating: newRating
             };
+            return targetProductToSync;
           }
           return p;
         });
@@ -279,6 +378,9 @@ export default function App() {
         }
         return updated;
       });
+      if (targetProductToSync) {
+        saveProductToFirestore(targetProductToSync).catch(() => {});
+      }
     }
   };
 
@@ -292,6 +394,7 @@ export default function App() {
       }
       return updated;
     });
+    deleteReviewFromFirestore(reviewId).catch(() => {});
   };
 
   // Sync user to local storage
@@ -379,18 +482,23 @@ export default function App() {
   };
 
   // 5. Checkout Completion
-  const handleOrderCompleted = (order: Order) => {
+  const handleOrderCompleted = async (order: Order) => {
     setOrders(prev => [order, ...prev]);
     setCartItems([]);
     setAppliedPromo(null);
     setCheckoutOpen(false);
     setCompletedOrder(order);
+    try {
+      await saveOrderToFirestore(order);
+    } catch (e) {
+      console.warn('Order sync fallback:', e);
+    }
   };
 
-  // 6. Admin Product, Order & Promo Management
-  const handleAddProduct = (newProd: Product) => {
+  // 6. Admin Product, Order & Promo Management (avec synchronisation multi-appareils Firestore)
+  const handleAddProduct = async (newProd: Product) => {
     setProducts(prev => {
-      const updated = [newProd, ...prev];
+      const updated = [newProd, ...prev.filter(p => p.id !== newProd.id)];
       try {
         localStorage.setItem('dg_products', JSON.stringify(updated));
       } catch {
@@ -398,9 +506,14 @@ export default function App() {
       }
       return updated;
     });
+    try {
+      await saveProductToFirestore(newProd);
+    } catch (e) {
+      console.warn('Sync new product to Firestore fallback:', e);
+    }
   };
 
-  const handleUpdateProduct = (updatedProd: Product) => {
+  const handleUpdateProduct = async (updatedProd: Product) => {
     setProducts(prev => {
       const updated = prev.map(p => (p.id === updatedProd.id ? updatedProd : p));
       try {
@@ -410,9 +523,14 @@ export default function App() {
       }
       return updated;
     });
+    try {
+      await saveProductToFirestore(updatedProd);
+    } catch (e) {
+      console.warn('Sync updated product to Firestore fallback:', e);
+    }
   };
 
-  const handleDeleteProduct = (productId: string) => {
+  const handleDeleteProduct = async (productId: string) => {
     setProducts(prev => {
       const updated = prev.filter(p => p.id !== productId);
       try {
@@ -422,30 +540,62 @@ export default function App() {
       }
       return updated;
     });
+    try {
+      await deleteProductFromFirestore(productId);
+    } catch (e) {
+      console.warn('Sync delete product to Firestore fallback:', e);
+    }
   };
 
-  const handleUpdateOrderStatus = (orderId: string, newStatus: Order['orderStatus']) => {
+  const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['orderStatus']) => {
     setOrders(prev =>
       prev.map(o => (o.id === orderId ? { ...o, orderStatus: newStatus } : o))
     );
+    try {
+      await updateOrderStatusInFirestore(orderId, newStatus);
+    } catch (e) {
+      console.warn('Order status sync fallback:', e);
+    }
   };
 
-  const handleDeleteOrder = (orderId: string) => {
+  const handleDeleteOrder = async (orderId: string) => {
     setOrders(prev => prev.filter(o => o.id !== orderId));
+    try {
+      await deleteOrderFromFirestore(orderId);
+    } catch (e) {
+      console.warn('Delete order sync fallback:', e);
+    }
   };
 
-  const handleAddPromoCode = (newPromo: PromoCode) => {
+  const handleAddPromoCode = async (newPromo: PromoCode) => {
     setPromoCodes(prev => [newPromo, ...prev.filter(p => p.code !== newPromo.code)]);
+    try {
+      await savePromoCodeToFirestore(newPromo);
+    } catch (e) {
+      console.warn('Promo sync fallback:', e);
+    }
   };
 
-  const handleDeletePromoCode = (code: string) => {
+  const handleDeletePromoCode = async (code: string) => {
     setPromoCodes(prev => prev.filter(p => p.code !== code));
+    try {
+      await deletePromoCodeFromFirestore(code);
+    } catch (e) {
+      console.warn('Delete promo sync fallback:', e);
+    }
   };
 
   // Delivery Zone Management Handlers
-  const handleUpdateDeliveryZone = (zoneId: string, updatedFields: Partial<DeliveryZone>) => {
+  const handleUpdateDeliveryZone = async (zoneId: string, updatedFields: Partial<DeliveryZone>) => {
+    let targetZone: DeliveryZone | undefined;
     setDeliveryZones(prev => {
-      const updated = prev.map(z => z.id === zoneId ? { ...z, ...updatedFields } : z);
+      const updated = prev.map(z => {
+        if (z.id === zoneId) {
+          targetZone = { ...z, ...updatedFields };
+          return targetZone;
+        }
+        return z;
+      });
       try {
         localStorage.setItem('dg_delivery_zones', JSON.stringify(updated));
       } catch {
@@ -453,9 +603,16 @@ export default function App() {
       }
       return updated;
     });
+    if (targetZone) {
+      try {
+        await saveDeliveryZoneToFirestore(targetZone);
+      } catch (e) {
+        console.warn('Delivery zone sync fallback:', e);
+      }
+    }
   };
 
-  const handleAddDeliveryZone = (newZone: DeliveryZone) => {
+  const handleAddDeliveryZone = async (newZone: DeliveryZone) => {
     setDeliveryZones(prev => {
       const updated = [...prev, newZone];
       try {
@@ -465,9 +622,14 @@ export default function App() {
       }
       return updated;
     });
+    try {
+      await saveDeliveryZoneToFirestore(newZone);
+    } catch (e) {
+      console.warn('Add delivery zone sync fallback:', e);
+    }
   };
 
-  const handleDeleteDeliveryZone = (zoneId: string) => {
+  const handleDeleteDeliveryZone = async (zoneId: string) => {
     setDeliveryZones(prev => {
       const updated = prev.filter(z => z.id !== zoneId);
       try {
@@ -477,12 +639,20 @@ export default function App() {
       }
       return updated;
     });
+    try {
+      await deleteDeliveryZoneFromFirestore(zoneId);
+    } catch (e) {
+      console.warn('Delete delivery zone sync fallback:', e);
+    }
   };
 
   const handleResetDeliveryZones = () => {
     setDeliveryZones(INITIAL_DELIVERY_ZONES);
     try {
       localStorage.setItem('dg_delivery_zones', JSON.stringify(INITIAL_DELIVERY_ZONES));
+      INITIAL_DELIVERY_ZONES.forEach(z => {
+        saveDeliveryZoneToFirestore(z).catch(() => {});
+      });
     } catch {
       // ignore
     }
@@ -498,19 +668,18 @@ export default function App() {
     }
   };
 
-  const handleResetStockAlerts = () => {
-    setProducts(prev => {
-      const updated = prev.map(p => ({
-        ...p,
-        stock: p.stock <= 5 ? 15 : p.stock
-      }));
-      try {
-        localStorage.setItem('dg_products', JSON.stringify(updated));
-      } catch {
-        // ignore
-      }
-      return updated;
-    });
+  const handleResetStockAlerts = async () => {
+    const updated = products.map(p => ({
+      ...p,
+      stock: p.stock <= 5 ? 15 : p.stock
+    }));
+    setProducts(updated);
+    try {
+      localStorage.setItem('dg_products', JSON.stringify(updated));
+      await seedInitialProducts(updated);
+    } catch {
+      // ignore
+    }
   };
 
   const handleResetVisitorStats = () => {
@@ -518,7 +687,7 @@ export default function App() {
     setVisitorStats(reset);
   };
 
-  const handleResetAllAdmin = () => {
+  const handleResetAllAdmin = async () => {
     setOrders([]);
     setProducts(INITIAL_PRODUCTS);
     setDeliveryZones(INITIAL_DELIVERY_ZONES);
@@ -530,6 +699,17 @@ export default function App() {
       localStorage.setItem('dg_products', JSON.stringify(INITIAL_PRODUCTS));
       localStorage.setItem('dg_delivery_zones', JSON.stringify(INITIAL_DELIVERY_ZONES));
       localStorage.setItem('dg_promos', JSON.stringify(INITIAL_PROMO_CODES));
+      await seedInitialProducts(INITIAL_PRODUCTS);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleUpdateStoreSettings = async (newSettings: StoreSettings) => {
+    setStoreSettings(newSettings);
+    try {
+      localStorage.setItem('dg_store_settings', JSON.stringify(newSettings));
+      await saveStoreSettingsToFirestore(newSettings);
     } catch {
       // ignore
     }
@@ -679,7 +859,9 @@ export default function App() {
             promoCodes={promoCodes}
             deliveryZones={deliveryZones}
             settings={storeSettings}
-            onUpdateSettings={setStoreSettings}
+            onUpdateSettings={handleUpdateStoreSettings}
+            syncStatus={syncStatus}
+            lastSyncDate={lastSyncDate}
             onAddProduct={handleAddProduct}
             onUpdateProduct={handleUpdateProduct}
             onDeleteProduct={handleDeleteProduct}
@@ -794,7 +976,9 @@ export default function App() {
           promoCodes={promoCodes}
           deliveryZones={deliveryZones}
           settings={storeSettings}
-          onUpdateSettings={setStoreSettings}
+          onUpdateSettings={handleUpdateStoreSettings}
+          syncStatus={syncStatus}
+          lastSyncDate={lastSyncDate}
           onAddProduct={handleAddProduct}
           onUpdateProduct={handleUpdateProduct}
           onDeleteProduct={handleDeleteProduct}

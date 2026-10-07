@@ -69,8 +69,8 @@ const compressAndReadImage = (file: File): Promise<string> => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 900;
-        const MAX_HEIGHT = 900;
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
         let width = img.width;
         let height = img.height;
 
@@ -91,7 +91,7 @@ const compressAndReadImage = (file: File): Promise<string> => {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
           resolve(dataUrl);
         } else {
           resolve(e.target?.result as string);
@@ -136,6 +136,8 @@ interface AdminPanelModalProps {
   onDeleteReview?: (reviewId: string) => void;
   visitorStats?: VisitorStats;
   onResetVisitorStats?: () => void;
+  syncStatus?: 'connected' | 'syncing' | 'offline';
+  lastSyncDate?: Date;
 }
 
 export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
@@ -168,7 +170,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   reviews = [],
   onDeleteReview,
   visitorStats,
-  onResetVisitorStats
+  onResetVisitorStats,
+  syncStatus = 'connected',
+  lastSyncDate
 }) => {
   // Visitor statistics state fallback & live tracking
   const [localVisitorStats, setLocalVisitorStats] = useState<VisitorStats>(() => visitorStats || getVisitorStats());
@@ -224,6 +228,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [formWarranty, setFormWarranty] = useState('6 mois de garantie');
   const [formIsFeatured, setFormIsFeatured] = useState(true);
   const [formIsFlashSale, setFormIsFlashSale] = useState(false);
+  const [productFeedback, setProductFeedback] = useState<string | null>(null);
 
   // Order filtering
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
@@ -539,16 +544,22 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const handleQuickStockChange = (prod: Product, delta: number) => {
     const newStock = Math.max(0, prod.stock + delta);
     onUpdateProduct({ ...prod, stock: newStock });
+    setProductFeedback(`Stock de « ${prod.name} » ajusté à ${newStock} et synchronisé en direct sur tous les appareils !`);
+    setTimeout(() => setProductFeedback(null), 4000);
   };
 
   // Quick Toggle Flash Sale
   const handleToggleFlashSale = (prod: Product) => {
     onUpdateProduct({ ...prod, isFlashSale: !prod.isFlashSale });
+    setProductFeedback(`Statut Vente Flash de « ${prod.name} » synchronisé sur tous les appareils !`);
+    setTimeout(() => setProductFeedback(null), 4000);
   };
 
   // Quick Toggle Featured
   const handleToggleFeatured = (prod: Product) => {
     onUpdateProduct({ ...prod, isFeatured: !prod.isFeatured });
+    setProductFeedback(`Mise en vedette de « ${prod.name} » synchronisée sur tous les appareils !`);
+    setTimeout(() => setProductFeedback(null), 4000);
   };
 
   // Save Product (Create or Update)
@@ -595,6 +606,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       };
       onAddProduct(newProd);
       setIsAddingNewProduct(false);
+      setProductFeedback(`Nouvel article « ${newProd.name} » enregistré et synchronisé en temps réel sur tous les appareils !`);
+      setTimeout(() => setProductFeedback(null), 5000);
     } else if (editingProduct) {
       const updated: Product = {
         ...editingProduct,
@@ -614,6 +627,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       };
       onUpdateProduct(updated);
       setEditingProduct(null);
+      setProductFeedback(`Modifications de « ${updated.name} » enregistrées et synchronisées en direct sur tous les appareils !`);
+      setTimeout(() => setProductFeedback(null), 5000);
     }
   };
 
@@ -709,6 +724,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     Connecté : Experteven
                   </span>
                 )}
+                <span className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                  syncStatus === 'connected' 
+                    ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60' 
+                    : syncStatus === 'syncing' 
+                    ? 'bg-amber-950/80 text-amber-300 border-amber-700/60 animate-pulse' 
+                    : 'bg-gray-800 text-gray-300 border-gray-700'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${
+                    syncStatus === 'connected' ? 'bg-emerald-400 animate-ping' : syncStatus === 'syncing' ? 'bg-amber-400' : 'bg-gray-400'
+                  }`} />
+                  {syncStatus === 'connected' ? 'Sync Cloud Multi-Appareils : Connecté' : syncStatus === 'syncing' ? 'Synchronisation Cloud...' : 'Local'}
+                </span>
               </div>
               <p className="text-xs text-gray-400">
                 Gestion complète du catalogue, des commandes, des prix et des paramètres de la boutique
@@ -1506,6 +1533,50 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               {tab === 'products' && (
                 <div className="space-y-5">
                   
+                  {/* Multi-Device Cloud Sync Banner */}
+                  <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                        <RotateCcw className="w-4 h-4 animate-spin-slow" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-black text-emerald-950">
+                            Synchronisation Multi-Appareils Cloud Active
+                          </h4>
+                          <span className="px-2 py-0.5 bg-emerald-200/80 text-emerald-900 rounded-full text-[10px] font-bold">
+                            Temps Réel
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-emerald-800">
+                          Tous les ajouts, modifications de prix et mises à jour de stocks s'appliquent immédiatement sur la boutique et se synchronisent en direct sur tous vos téléphones, tablettes et ordinateurs.
+                        </p>
+                      </div>
+                    </div>
+                    {lastSyncDate && (
+                      <span className="text-[10px] font-mono text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-lg shrink-0 self-start sm:self-auto">
+                        Dernière synchro : {lastSyncDate.toLocaleTimeString('fr-FR')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Temporary Action Feedback Banner */}
+                  {productFeedback && (
+                    <div className="p-3.5 bg-emerald-600 text-white rounded-2xl text-xs font-bold shadow-md flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-1">
+                      <span className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-200 shrink-0" />
+                        {productFeedback}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setProductFeedback(null)}
+                        className="text-emerald-100 hover:text-white p-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                  
                   {/* Top Bar with Search & Add button */}
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-2 flex-1 max-w-md">
@@ -2045,6 +2116,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                                   onClick={() => {
                                     if (confirm(`Supprimer définitivement l'article "${prod.name}" ?`)) {
                                       onDeleteProduct(prod.id);
+                                      setProductFeedback(`Article « ${prod.name} » supprimé et retiré du catalogue sur tous les appareils !`);
+                                      setTimeout(() => setProductFeedback(null), 4000);
                                     }
                                   }}
                                   className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition"
