@@ -23,12 +23,14 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
   onViewCatalog
 }) => {
   const handleViewAll = onViewCatalog || onViewAll || (() => {});
-  const [filter, setFilter] = useState<'all' | 'promos' | 'electronics' | 'appliances'>('all');
+  const [filter, setFilter] = useState<'all' | 'promos' | 'electronics' | 'sound_video' | 'solaire' | 'appliances'>('all');
 
   const filteredProducts = products.filter(p => {
     if (filter === 'promos') return (p.discountPercent && p.discountPercent > 0) || p.isFlashSale;
-    if (filter === 'electronics') return p.category === 'telephones-accessoires' || p.category === 'tv-audio' || p.category === 'informatique';
-    if (filter === 'appliances') return p.category === 'electromenager' || p.category === 'maison';
+    if (filter === 'electronics') return p.category === 'telephones-accessoires' || p.category === 'informatique';
+    if (filter === 'sound_video') return p.category === 'sonorisation-amplificateur' || p.category === 'tv-audio' || p.category === 'photo-video-numerique';
+    if (filter === 'solaire') return p.category === 'solaire-energie';
+    if (filter === 'appliances') return p.category === 'electromenager';
     return true;
   });
 
@@ -73,7 +75,29 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
               }`}
             >
               <ActiveFlame size="xs" glow={false} />
-              <span>Promos & Réductions</span>
+              <span>Promos</span>
+            </button>
+
+            <button
+              onClick={() => setFilter('sound_video')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                filter === 'sound_video'
+                  ? 'bg-gray-900 text-white shadow-md'
+                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+              }`}
+            >
+              🔊 Sono, TV & Photo
+            </button>
+
+            <button
+              onClick={() => setFilter('solaire')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                filter === 'solaire'
+                  ? 'bg-gray-900 text-white shadow-md'
+                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+              }`}
+            >
+              ☀️ Solaire & Énergie
             </button>
 
             <button
@@ -84,7 +108,7 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
                   : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
               }`}
             >
-              📱 Électronique
+              📱 Téléphonie
             </button>
 
             <button

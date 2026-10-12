@@ -9,7 +9,12 @@ import {
   HeartPulse, 
   Headphones, 
   Flame,
-  ArrowRight
+  ArrowRight,
+  Speaker,
+  Sun,
+  Camera,
+  Zap,
+  Volume2
 } from 'lucide-react';
 
 interface CategoryGridProps {
@@ -23,6 +28,14 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
 }) => {
   const getIcon = (iconName: string) => {
     switch (iconName) {
+      case 'Speaker':
+      case 'Volume2':
+        return <Speaker className="w-5 h-5 text-indigo-600" />;
+      case 'Sun':
+      case 'Zap':
+        return <Sun className="w-5 h-5 text-amber-500" />;
+      case 'Camera':
+        return <Camera className="w-5 h-5 text-cyan-600" />;
       case 'Smartphone':
         return <Smartphone className="w-5 h-5" />;
       case 'Laptop':

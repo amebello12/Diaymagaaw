@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   INITIAL_PRODUCTS, 
   INITIAL_CATEGORIES, 
@@ -27,6 +27,9 @@ import {
   saveProductToFirestore,
   deleteProductFromFirestore,
   seedInitialProducts,
+  subscribeToCategories,
+  saveCategoryToFirestore,
+  seedInitialCategories,
   subscribeToOrders,
   saveOrderToFirestore,
   updateOrderStatusInFirestore,
@@ -72,13 +75,49 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>(() => {
     try {
       const saved = localStorage.getItem('dg_products');
-      return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+      if (saved) {
+        const parsed: Product[] = JSON.parse(saved);
+        return parsed.map(p => {
+          if (p.category === 'tv-home-cinema') return { ...p, category: 'tv-audio' };
+          if (p.category === 'maison') return { ...p, category: 'electromenager' };
+          return p;
+        });
+      }
+      return INITIAL_PRODUCTS;
     } catch {
       return INITIAL_PRODUCTS;
     }
   });
 
-  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>(() => {
+    try {
+      const saved = localStorage.getItem('dg_categories');
+      if (saved) {
+        const parsed: Category[] = JSON.parse(saved);
+        return parsed.filter(c => c.id !== 'maison' && c.id !== 'tv-home-cinema' && c.slug !== 'maison' && c.slug !== 'tv-home-cinema');
+      }
+      return INITIAL_CATEGORIES;
+    } catch {
+      return INITIAL_CATEGORIES;
+    }
+  });
+
+  // Catégories avec comptage dynamique en temps réel des articles disponibles
+  const categoriesWithCounts = useMemo(() => {
+    return categories.map(cat => {
+      let count = 0;
+      if (cat.slug === 'promotions') {
+        count = products.filter(p => p.discountPercent && p.discountPercent > 0).length;
+      } else {
+        count = products.filter(p => p.category === cat.slug).length;
+      }
+      return {
+        ...cat,
+        itemCount: count
+      };
+    });
+  }, [categories, products]);
+
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>(() => {
     try {
       const saved = localStorage.getItem('dg_delivery_zones');
@@ -173,14 +212,32 @@ export default function App() {
     // Synchronisation en temps réel des articles du catalogue
     const unsubProducts = subscribeToProducts((cloudProducts) => {
       if (cloudProducts && cloudProducts.length > 0) {
-        setProducts(cloudProducts);
+        const cleaned = cloudProducts.map(p => {
+          if (p.category === 'tv-home-cinema') return { ...p, category: 'tv-audio' };
+          if (p.category === 'maison') return { ...p, category: 'electromenager' };
+          return p;
+        });
+        setProducts(cleaned);
         try {
-          localStorage.setItem('dg_products', JSON.stringify(cloudProducts));
+          localStorage.setItem('dg_products', JSON.stringify(cleaned));
         } catch {
           // ignore
         }
       }
     }, INITIAL_PRODUCTS);
+
+    // Synchronisation en temps réel des catégories du catalogue
+    const unsubCategories = subscribeToCategories((cloudCats) => {
+      if (cloudCats && cloudCats.length > 0) {
+        const cleaned = cloudCats.filter(c => c.id !== 'maison' && c.id !== 'tv-home-cinema' && c.slug !== 'maison' && c.slug !== 'tv-home-cinema');
+        setCategories(cleaned);
+        try {
+          localStorage.setItem('dg_categories', JSON.stringify(cleaned));
+        } catch {
+          // ignore
+        }
+      }
+    }, INITIAL_CATEGORIES);
 
     // Synchronisation en temps réel des commandes
     const unsubOrders = subscribeToOrders((cloudOrders) => {
@@ -225,6 +282,7 @@ export default function App() {
     return () => {
       unsubStatus();
       unsubProducts();
+      unsubCategories();
       unsubOrders();
       unsubZones();
       unsubPromos();
@@ -730,6 +788,7 @@ export default function App() {
         onNavigate={handleNavigate}
         onSearchSubmit={handleSearchSubmit}
         products={products}
+        categories={categoriesWithCounts}
         onSelectProduct={setSelectedProduct}
         activeView={activeView}
         settings={storeSettings}
@@ -752,7 +811,7 @@ export default function App() {
 
             {/* Visual Category Grid */}
             <CategoryGrid
-              categories={categories}
+              categories={categoriesWithCounts}
               onSelectCategory={(slug) => handleNavigate('shop', slug)}
             />
 
@@ -768,7 +827,7 @@ export default function App() {
             {/* Featured Best Sellers & Filterable Catalog Preview */}
             <FeaturedProducts
               products={products}
-              categories={categories}
+              categories={categoriesWithCounts}
               onSelectProduct={setSelectedProduct}
               onAddToCart={handleAddToCart}
               onBuyNow={handleBuyNow}
@@ -805,7 +864,7 @@ export default function App() {
         {activeView === 'shop' && (
           <ShopCatalog
             products={products}
-            categories={categories}
+            categories={categoriesWithCounts}
             selectedCategorySlug={selectedCategorySlug}
             onSelectCategorySlug={setSelectedCategorySlug}
             onSelectProduct={setSelectedProduct}
@@ -852,7 +911,7 @@ export default function App() {
             isPageMode={true}
             onClose={() => handleNavigate('home', null)}
             products={products}
-            categories={categories}
+            categories={categoriesWithCounts}
             orders={orders}
             promoCodes={promoCodes}
             deliveryZones={deliveryZones}
@@ -969,7 +1028,7 @@ export default function App() {
           isPageMode={false}
           onClose={() => setAdminModalOpen(false)}
           products={products}
-          categories={categories}
+          categories={categoriesWithCounts}
           orders={orders}
           promoCodes={promoCodes}
           deliveryZones={deliveryZones}

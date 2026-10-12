@@ -12,9 +12,11 @@ import {
   Download,
   Settings,
   Sparkles,
-  Star
+  Star,
+  ChevronDown,
+  Layers
 } from 'lucide-react';
-import { Product, ActiveView, StoreSettings } from '../types';
+import { Product, Category, ActiveView, StoreSettings } from '../types';
 import { formatFCFA, STORE_PHONE_DISPLAY, formatPhoneNumber, cleanPhoneForWhatsApp } from '../utils/currency';
 import { BrandLogo } from './BrandLogo';
 import { ActiveFlame } from './ActiveFlame';
@@ -36,6 +38,7 @@ interface HeaderProps {
   openExportShopify?: () => void;
   onOpenExportShopify?: () => void;
   products?: Product[];
+  categories?: Category[];
   onSelectProduct?: (product: Product) => void;
   onSearchSubmit?: (query: string) => void;
   settings?: StoreSettings;
@@ -58,6 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
   openExportShopify,
   onOpenExportShopify,
   products = [],
+  categories = [],
   onSelectProduct,
   onSearchSubmit,
   settings
@@ -65,7 +69,19 @@ export const Header: React.FC<HeaderProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [showCategoriesDropdown, setShowCategoriesDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const catMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (catMenuRef.current && !catMenuRef.current.contains(e.target as Node)) {
+        setShowCategoriesDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const currentCategorySlug = selectedCategorySlug || selectedCategory || null;
 
@@ -347,7 +363,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Desktop Navigation Menu */}
         <nav className="hidden lg:flex items-center justify-between border-t border-gray-100 py-3 text-sm font-semibold text-gray-700">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-5">
             <button
               onClick={() => handleNavClick('home', null)}
               className={`hover:text-red-600 transition pb-0.5 cursor-pointer ${
@@ -357,40 +373,96 @@ export const Header: React.FC<HeaderProps> = ({
               Accueil
             </button>
 
+            {/* Rayons & Catégories Dropdown */}
+            <div className="relative" ref={catMenuRef}>
+              <button
+                type="button"
+                onClick={() => setShowCategoriesDropdown(!showCategoriesDropdown)}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                  showCategoriesDropdown || (activeView === 'shop' && currentCategorySlug)
+                    ? 'bg-red-50 text-red-700 border-red-200 shadow-xs'
+                    : 'bg-gray-100/80 hover:bg-gray-200 text-gray-800 border-transparent'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 text-red-600" />
+                <span>Tous les Rayons</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showCategoriesDropdown ? 'rotate-180 text-red-600' : ''}`} />
+              </button>
+
+              {showCategoriesDropdown && (
+                <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3 py-2 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100 flex items-center justify-between">
+                    <span>Catégories du catalogue</span>
+                    <span className="text-red-600">{categories.length} rayons</span>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto divide-y divide-gray-50 py-1">
+                    <button
+                      onClick={() => {
+                        setShowCategoriesDropdown(false);
+                        handleNavClick('shop', null);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-50 flex items-center justify-between transition"
+                    >
+                      <span>🔥 Toute la Boutique (Tous produits)</span>
+                    </button>
+                    {categories.map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => {
+                          setShowCategoriesDropdown(false);
+                          handleNavClick('shop', cat.slug);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs transition flex items-center justify-between ${
+                          currentCategorySlug === cat.slug 
+                            ? 'bg-red-50 text-red-600 font-bold' 
+                            : 'text-gray-700 hover:bg-gray-50 hover:text-red-600 font-medium'
+                        }`}
+                      >
+                        <span className="truncate">{cat.name}</span>
+                        {cat.itemCount !== undefined && (
+                          <span className="text-[10px] text-gray-400 font-mono ml-2">({cat.itemCount})</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
-              onClick={() => handleNavClick('shop', null)}
-              className={`hover:text-red-600 transition pb-0.5 cursor-pointer ${
-                activeView === 'shop' && !currentCategorySlug ? 'text-red-600 font-bold border-b-2 border-red-600' : ''
+              onClick={() => handleNavClick('shop', 'sonorisation-amplificateur')}
+              className={`hover:text-red-600 transition pb-0.5 cursor-pointer text-xs ${
+                currentCategorySlug === 'sonorisation-amplificateur' ? 'text-red-600 font-bold border-b-2 border-red-600' : ''
               }`}
             >
-              Toute la Boutique
+              Sonorisation & Ampli
             </button>
 
             <button
-              onClick={() => handleNavClick('shop', 'telephones-accessoires')}
-              className={`hover:text-red-600 transition pb-0.5 cursor-pointer ${
-                currentCategorySlug === 'telephones-accessoires' ? 'text-red-600 font-bold border-b-2 border-red-600' : ''
+              onClick={() => handleNavClick('shop', 'tv-audio')}
+              className={`hover:text-red-600 transition pb-0.5 cursor-pointer text-xs ${
+                currentCategorySlug === 'tv-audio' ? 'text-red-600 font-bold border-b-2 border-red-600' : ''
               }`}
             >
-              Électronique
+              TV & Audio
             </button>
 
             <button
-              onClick={() => handleNavClick('shop', 'electromenager')}
-              className={`hover:text-red-600 transition pb-0.5 cursor-pointer ${
-                currentCategorySlug === 'electromenager' ? 'text-red-600 font-bold border-b-2 border-red-600' : ''
+              onClick={() => handleNavClick('shop', 'solaire-energie')}
+              className={`hover:text-red-600 transition pb-0.5 cursor-pointer text-xs ${
+                currentCategorySlug === 'solaire-energie' ? 'text-red-600 font-bold border-b-2 border-red-600' : ''
               }`}
             >
-              Électroménager
+              Solaire & Énergie
             </button>
 
             <button
-              onClick={() => handleNavClick('shop', 'sante-bien-etre')}
-              className={`hover:text-red-600 transition pb-0.5 cursor-pointer ${
-                currentCategorySlug === 'sante-bien-etre' ? 'text-red-600 font-bold border-b-2 border-red-600' : ''
+              onClick={() => handleNavClick('shop', 'photo-video-numerique')}
+              className={`hover:text-red-600 transition pb-0.5 cursor-pointer text-xs ${
+                currentCategorySlug === 'photo-video-numerique' ? 'text-red-600 font-bold border-b-2 border-red-600' : ''
               }`}
             >
-              Santé & Bien-être
+              Photo & Vidéo
             </button>
 
             <button
@@ -412,7 +484,7 @@ export const Header: React.FC<HeaderProps> = ({
                 activeView === 'delivery' ? 'text-red-600 font-bold border-b-2 border-red-600' : ''
               }`}
             >
-              Tarifs Livraison
+              Livraison
             </button>
 
             <button
@@ -422,7 +494,7 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span>Avis Clients</span>
+              <span>Avis</span>
             </button>
 
             <button
@@ -461,41 +533,36 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => handleNavClick('shop', null)}
               className="text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-800 hover:bg-gray-50 flex items-center justify-between"
             >
-              <span>Toute la Boutique</span>
+              <span>Toute la Boutique (Tous rayons)</span>
               <span className="text-gray-400">→</span>
             </button>
 
-            <button
-              onClick={() => handleNavClick('shop', 'telephones-accessoires')}
-              className="text-left px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              📱 Téléphones & Accessoires
-            </button>
-
-            <button
-              onClick={() => handleNavClick('shop', 'electromenager')}
-              className="text-left px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              ❄️ Électroménager
-            </button>
-
-            <button
-              onClick={() => handleNavClick('shop', 'sante-bien-etre')}
-              className="text-left px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              👕 Santé & Bien-être
-            </button>
-
-            <button
-              onClick={() => handleNavClick('shop', 'informatique')}
-              className="text-left px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              💻 Informatique & Bureautique
-            </button>
+            {/* Dynamic Categories in Mobile Menu */}
+            <div className="pt-2 pb-1 border-t border-gray-100">
+              <span className="px-3 text-[11px] font-black text-gray-400 uppercase tracking-wider block mb-1">
+                Rayons de la boutique ({categories.length})
+              </span>
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => handleNavClick('shop', c.slug)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between transition ${
+                    currentCategorySlug === c.slug
+                      ? 'bg-red-50 text-red-600 font-bold'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="truncate">{c.name}</span>
+                  {c.itemCount !== undefined && (
+                    <span className="text-xs text-gray-400">({c.itemCount})</span>
+                  )}
+                </button>
+              ))}
+            </div>
 
             <button
               onClick={() => handleNavClick('shop', 'promotions')}
-              className="text-left px-3.5 py-3 rounded-xl text-sm font-black text-red-600 bg-linear-to-r from-red-50 via-orange-50/50 to-amber-50/60 border border-red-200 flex items-center justify-between gap-2 shadow-xs"
+              className="text-left px-3.5 py-3 rounded-xl text-sm font-black text-red-600 bg-linear-to-r from-red-50 via-orange-50/50 to-amber-50/60 border border-red-200 flex items-center justify-between gap-2 shadow-xs mt-1"
             >
               <div className="flex items-center gap-2.5">
                 <ActiveFlame size="sm" />

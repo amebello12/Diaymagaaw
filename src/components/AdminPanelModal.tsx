@@ -606,8 +606,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       };
       onAddProduct(newProd);
       setIsAddingNewProduct(false);
-      setProductFeedback(`Nouvel article « ${newProd.name} » enregistré et synchronisé en temps réel sur tous les appareils !`);
-      setTimeout(() => setProductFeedback(null), 5000);
+      setFormName('');
+      setFormImages([]);
+      setFormImageUrl('');
+      setFormDescription('');
+      setFormPrice(25000);
+      setFormOriginalPrice(35000);
+      setProductFeedback(`✅ L'article « ${newProd.name} » est publié et immédiatement visible par tous les clients et visiteurs sur le site en direct !`);
+      setTimeout(() => setProductFeedback(null), 6000);
     } else if (editingProduct) {
       const updated: Product = {
         ...editingProduct,
@@ -627,8 +633,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       };
       onUpdateProduct(updated);
       setEditingProduct(null);
-      setProductFeedback(`Modifications de « ${updated.name} » enregistrées et synchronisées en direct sur tous les appareils !`);
-      setTimeout(() => setProductFeedback(null), 5000);
+      setFormName('');
+      setFormImages([]);
+      setFormImageUrl('');
+      setProductFeedback(`✅ Modifications de « ${updated.name} » publiées en direct ! Immédiatement visibles par tous les visiteurs sur le site.`);
+      setTimeout(() => setProductFeedback(null), 6000);
     }
   };
 

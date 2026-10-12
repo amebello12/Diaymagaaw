@@ -2,6 +2,33 @@ import { Product, Category, DeliveryZone, Review, StoreSettings, Order, PromoCod
 
 export const INITIAL_CATEGORIES: Category[] = [
   {
+    id: 'sonorisation-amplificateur',
+    name: 'Sonorisation & Amplificateur',
+    slug: 'sonorisation-amplificateur',
+    icon: 'Speaker',
+    image: 'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=800&auto=format&fit=crop',
+    itemCount: 16,
+    description: 'Baffles amplifiés, tables de mixage, amplificateurs de puissance et micros professionnels'
+  },
+  {
+    id: 'solaire-energie',
+    name: 'Solaire & Énergie',
+    slug: 'solaire-energie',
+    icon: 'Sun',
+    image: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?q=80&w=800&auto=format&fit=crop',
+    itemCount: 22,
+    description: 'Kits solaires complets, panneaux photovoltaïques, onduleurs hybrides et éclairage autonome'
+  },
+  {
+    id: 'photo-video-numerique',
+    name: 'Photo & Vidéo Numérique',
+    slug: 'photo-video-numerique',
+    icon: 'Camera',
+    image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=800&auto=format&fit=crop',
+    itemCount: 15,
+    description: 'Appareils photo numériques, caméras 4K, stabilisateurs gimbals et éclairages studio'
+  },
+  {
     id: 'telephones-accessoires',
     name: 'Téléphones & Accessoires',
     slug: 'telephones-accessoires',
@@ -25,8 +52,8 @@ export const INITIAL_CATEGORIES: Category[] = [
     slug: 'tv-audio',
     icon: 'Tv',
     image: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?q=80&w=800&auto=format&fit=crop',
-    itemCount: 15,
-    description: 'Smart TV 4K, barres de son, enceintes Bluetooth puissantes'
+    itemCount: 18,
+    description: 'Smart TV 4K/8K, barres de son, home cinéma et enceintes Bluetooth puissantes'
   },
   {
     id: 'electromenager',
@@ -36,15 +63,6 @@ export const INITIAL_CATEGORIES: Category[] = [
     image: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?q=80&w=800&auto=format&fit=crop',
     itemCount: 32,
     description: 'Réfrigérateurs, micro-ondes, mixeurs haute puissance et climatiseurs'
-  },
-  {
-    id: 'maison',
-    name: 'Maison',
-    slug: 'maison',
-    icon: 'Home',
-    image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=800&auto=format&fit=crop',
-    itemCount: 20,
-    description: 'Décoration, literie, rangements et luminaires modernes'
   },
   {
     id: 'sante-bien-etre',
@@ -304,6 +322,225 @@ export const INITIAL_PRODUCTS: Product[] = [
     isFlashSale: true,
     brand: 'Ninja Pro',
     sku: 'DG-ELM-AF8L',
+    warranty: '6 mois de garantie'
+  },
+  {
+    id: 'prod-sono-1',
+    name: 'Enceinte de Soirée Amplifiée JBL PartyBox 310 - 240W RMS & Jeux de Lumières',
+    slug: 'enceinte-amplifiee-jbl-partybox-310-240w',
+    category: 'sonorisation-amplificateur',
+    price: 385000,
+    originalPrice: 420000,
+    discountPercent: 8,
+    rating: 4.9,
+    reviewsCount: 24,
+    images: [
+      'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=800&auto=format&fit=crop'
+    ],
+    description: 'Son JBL Pro surpuissant de 240W avec effets lumineux dynamiques synchronisés au rythme de la musique. Batterie rechargeable offrant jusqu\'à 18h d\'autonomie. Entrées pour micro et guitare pour concerts et animations karaoké.',
+    features: [
+      'Puissance sonore explosive de 240 Watts RMS',
+      'Jeux de lumières dynamiques avec effets stroboscopiques',
+      'Batterie longue durée 18h avec poignée télescopique et roulettes',
+      'Résistant aux éclaboussures norme IPX4',
+      'Double entrée Jack micro/guitare avec réglage du gain'
+    ],
+    stock: 8,
+    isFeatured: true,
+    brand: 'JBL Pro',
+    sku: 'DG-SONO-PB310',
+    warranty: '1 an de garantie'
+  },
+  {
+    id: 'prod-sono-2',
+    name: 'Amplificateur Professionnel Stéréo 2x500W avec Bluetooth, USB & Réglages DSP',
+    slug: 'amplificateur-pro-stereo-2x500w-dsp',
+    category: 'sonorisation-amplificateur',
+    price: 185000,
+    originalPrice: 220000,
+    discountPercent: 15,
+    rating: 4.8,
+    reviewsCount: 17,
+    images: [
+      'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1511379938547-c1f69419868d?q=80&w=800&auto=format&fit=crop'
+    ],
+    description: 'Amplificateur de puissance haute fidélité pour sonorisation de cérémonies, salles de fête et espaces extérieurs. Équipé d\'un récepteur Bluetooth 5.0, port USB/SD et protection thermique anti-surtension.',
+    features: [
+      'Puissance continue 2x 500W sous 4 Ohms / 2x 350W sous 8 Ohms',
+      'Entrées XLR, Jack 6.35mm et RCA pour toutes tables de mixage',
+      'Refroidissement par double ventilateur silencieux haute efficacité',
+      'Affichage LED du niveau sonore (VU-mètre) et protection anti-court-circuit'
+    ],
+    stock: 6,
+    isFeatured: true,
+    brand: 'Yamaha Audio',
+    sku: 'DG-SONO-AMP500',
+    warranty: '1 an de garantie'
+  },
+  {
+    id: 'prod-tv-1',
+    name: 'Smart TV Samsung 55" QLED 4K 2024 - Quantum HDR, Dolby Atmos & AirPlay',
+    slug: 'smart-tv-samsung-55-qled-4k',
+    category: 'tv-audio',
+    price: 425000,
+    originalPrice: 480000,
+    discountPercent: 11,
+    rating: 4.9,
+    reviewsCount: 31,
+    images: [
+      'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?q=80&w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?q=80&w=800&auto=format&fit=crop'
+    ],
+    description: 'Plongez au cœur de l\'image avec la technologie Quantum Dot délivrant 100% du volume couleur. Processeur Quantum 4K avec intelligence artificielle, design ultra fin sans bordure et applications intégrées (Netflix, YouTube, IPTV).',
+    features: [
+      'Dalle 55 pouces (140 cm) 4K Ultra HD QLED 120Hz',
+      'Technologie Quantum HDR et son immersif Dolby Atmos',
+      'Système Tizen OS avec commande vocale et Gaming Hub',
+      'Télécommande écologique rechargeable à l\'énergie solaire',
+      'Connectique complète : 3x HDMI, 2x USB, Wi-Fi 5GHz & Bluetooth'
+    ],
+    stock: 7,
+    isFeatured: true,
+    brand: 'Samsung',
+    sku: 'DG-TV-QLED55',
+    warranty: '2 ans de garantie'
+  },
+  {
+    id: 'prod-tv-2',
+    name: 'Home Cinéma Barre de Son 5.1 Surround Sans Fil 600W avec Caisson de Basse',
+    slug: 'barre-de-son-home-cinema-5-1-600w',
+    category: 'tv-audio',
+    price: 215000,
+    originalPrice: 250000,
+    discountPercent: 14,
+    rating: 4.8,
+    reviewsCount: 22,
+    images: [
+      'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=800&auto=format&fit=crop'
+    ],
+    description: 'Transformez votre salon en véritable salle de cinéma. Ensemble home cinéma 5.1 composé d\'une barre de son haute clarté, d\'un subwoofer caisson de basse sans fil puissant et de 2 enceintes arrière pour une spatialisation totale.',
+    features: [
+      'Puissance totale dynamique de 600 Watts',
+      'Décodeur audio Dolby Digital et DTS Surround',
+      'Caisson de basse sans fil pour des explosions et graves profonds',
+      'Connexion HDMI eARC, Optique et Bluetooth instantané'
+    ],
+    stock: 9,
+    isFeatured: true,
+    brand: 'Sony Audio',
+    sku: 'DG-TV-SOUND51',
+    warranty: '1 an de garantie'
+  },
+  {
+    id: 'prod-sol-1',
+    name: 'Kit Solaire Autonome Complet 1500W : Onduleur Hybride 24V + 2 Panneaux 450W + Batterie Gel 200Ah',
+    slug: 'kit-solaire-autonome-complet-1500w',
+    category: 'solaire-energie',
+    price: 545000,
+    originalPrice: 620000,
+    discountPercent: 12,
+    rating: 4.9,
+    reviewsCount: 19,
+    images: [
+      'https://images.unsplash.com/photo-1509391365360-2e959784a276?q=80&w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?q=80&w=800&auto=format&fit=crop'
+    ],
+    description: 'Alimentez votre maison en continu sans vous soucier des délestages ou coupures de courant ! Kit complet capable d\'alimenter réfrigérateur, téléviseur, ventilateurs, éclairage complet et chargeurs d\'ordinateurs 24h/24.',
+    features: [
+      'Onduleur hybride pur sinus 24V 1500W avec régulateur MPPT 60A',
+      '2 Panneaux photovoltaïques monocristallins 450W haute efficacité',
+      'Batterie Gel solaire à décharge profonde 12V 200Ah longue durée',
+      'Câblage complet résistant aux UV et disjoncteurs de sécurité inclus'
+    ],
+    stock: 5,
+    isFeatured: true,
+    brand: 'Felicity Solar',
+    sku: 'DG-SOL-KIT1500',
+    warranty: '2 ans de garantie'
+  },
+  {
+    id: 'prod-sol-2',
+    name: 'Pack 2 Projecteurs Solaires LED 400W Extérieurs Étanches IP67 avec Télécommande',
+    slug: 'pack-2-projecteurs-solaires-led-400w',
+    category: 'solaire-energie',
+    price: 52000,
+    originalPrice: 68000,
+    discountPercent: 23,
+    rating: 4.8,
+    reviewsCount: 46,
+    images: [
+      'https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1509391365360-2e959784a276?q=80&w=800&auto=format&fit=crop'
+    ],
+    description: 'Éclairez votre cour, devanture, garage ou jardin avec 0 FCFA de facture d\'électricité. S\'allume automatiquement au coucher du soleil et s\'éteint à l\'aube. Grande portée d\'éclairage de 150 m² par projecteur.',
+    features: [
+      'Éclairage LED ultra lumineux 400W avec 384 puces LED SMD',
+      'Batterie lithium LiFePO4 assurant 14 à 16h d\'éclairage par nuit',
+      'Résistance totale aux intempéries, fortes pluies et poussières IP67',
+      'Télécommande multifonction avec programmation de minuterie (3h, 5h, 8h)'
+    ],
+    stock: 28,
+    isFeatured: false,
+    brand: 'SunLight Pro',
+    sku: 'DG-SOL-PROJ400',
+    warranty: '1 an de garantie'
+  },
+  {
+    id: 'prod-photo-1',
+    name: 'Appareil Photo Numérique Hybride 4K Mirrorless 24.2 MP avec Objectif 18-55mm',
+    slug: 'appareil-photo-hybride-4k-mirrorless-24mp',
+    category: 'photo-video-numerique',
+    price: 520000,
+    originalPrice: 580000,
+    discountPercent: 10,
+    rating: 4.9,
+    reviewsCount: 14,
+    images: [
+      'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?q=80&w=800&auto=format&fit=crop'
+    ],
+    description: 'Capteur APS-C 24.2 mégapixels haute sensibilité et enregistrement vidéo cinématographique 4K 30p / Full HD 120p. Autofocus ultra rapide avec suivi des yeux et écran orientable à 180° pour le vlog et les portraits.',
+    features: [
+      'Capteur CMOS 24.2 MP avec processeur d\'image dernière génération',
+      'Vidéo 4K HDR sans crop et ralenti 120 fps Full HD',
+      'Écran tactile orientable 3 pouces idéal pour selfies et vlogs',
+      'Connexion sans fil Wi-Fi et Bluetooth pour transfert instantané sur smartphone',
+      'Objectif zoom stabilisé 18-55mm f/3.5-5.6 inclus dans le coffret'
+    ],
+    stock: 4,
+    isFeatured: true,
+    brand: 'Sony Alpha',
+    sku: 'DG-PHO-MIRROR24',
+    warranty: '2 ans de garantie'
+  },
+  {
+    id: 'prod-photo-2',
+    name: 'Kit Studio Vidéo & Vlog : Ring Light 19" 60W + Trépied Pro 2m + 2 Micros Sans Fil',
+    slug: 'kit-studio-vlog-ring-light-micros-sans-fil',
+    category: 'photo-video-numerique',
+    price: 58000,
+    originalPrice: 75000,
+    discountPercent: 22,
+    rating: 4.8,
+    reviewsCount: 39,
+    images: [
+      'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=800&auto=format&fit=crop'
+    ],
+    description: 'Le kit incontournable pour les créateurs de contenu sur TikTok, Instagram, YouTube et ventes en direct. Anneau lumineux bicolore à intensité réglable, trépied métallique robuste et micros cravates sans fil avec réduction de bruit.',
+    features: [
+      'Ring Light LED 19 pouces (48 cm) à température variable (3000K - 6500K)',
+      'Trépied en aluminium renforcé réglable jusqu\'à 2m10 de hauteur',
+      'Paire de micros cravate sans fil Type-C & Lightning longue portée 20m',
+      'Support multi-smartphones pour diffuser sur plusieurs plateformes simultanément'
+    ],
+    stock: 22,
+    isFeatured: true,
+    brand: 'StudioVlog Pro',
+    sku: 'DG-PHO-KITSTUDIO',
     warranty: '6 mois de garantie'
   }
 ];

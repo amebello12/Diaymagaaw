@@ -19,7 +19,7 @@ import {
   User 
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Product, Order, DeliveryZone, PromoCode, Review, StoreSettings } from '../types';
+import { Product, Category, Order, DeliveryZone, PromoCode, Review, StoreSettings } from '../types';
 
 // 1. Initialize Firebase App & Services
 const app = initializeApp(firebaseConfig);
@@ -114,7 +114,7 @@ export function sanitizeForFirestore(obj: any): any {
   }));
 }
 
-// 5. Products Real-time Synchronization (Articles Multi-appareils)
+// 5. Products Real-time Synchronization (Articles Multi-appareils & Direct Site Publié)
 export function subscribeToProducts(
   onUpdate: (products: Product[]) => void,
   initialFallback?: Product[]
@@ -142,6 +142,18 @@ export function subscribeToProducts(
         prods.push(docSnap.data() as Product);
       });
 
+      // Synchronize missing initial products (e.g. newly added categories and catalog items)
+      if (initialFallback && initialFallback.length > 0) {
+        const existingIds = new Set(prods.map(p => p.id));
+        const missingInitial = initialFallback.filter(p => !existingIds.has(p.id));
+        if (missingInitial.length > 0) {
+          seedInitialProducts(missingInitial).catch(err => {
+            console.warn('Syncing missing initial products to Firestore:', err);
+          });
+          prods.push(...missingInitial);
+        }
+      }
+
       // Sort: Newly created products (timestamp in ID) appear first at the top of the store!
       prods.sort((a, b) => {
         const timeA = a.id.startsWith('prod-1') && a.id.length > 8 ? parseInt(a.id.replace('prod-', ''), 10) : 0;
@@ -149,9 +161,7 @@ export function subscribeToProducts(
         if (timeA && timeB) return timeB - timeA;
         if (timeA) return -1;
         if (timeB) return 1;
-        const numA = parseInt(a.id.replace('prod-', ''), 10) || 999;
-        const numB = parseInt(b.id.replace('prod-', ''), 10) || 999;
-        return numA - numB;
+        return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
       });
 
       onUpdate(prods);
@@ -205,6 +215,102 @@ export async function seedInitialProducts(initialProducts: Product[]): Promise<v
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'products');
     updateSyncStatus('offline');
+  }
+}
+
+// 5.5 Categories Real-time Synchronization
+const PURGED_CATEGORY_IDS = new Set(['maison', 'tv-home-cinema']);
+
+export function subscribeToCategories(
+  onUpdate: (categories: Category[]) => void,
+  initialFallback?: Category[]
+) {
+  const path = 'categories';
+  const catCol = collection(db, path);
+
+  const unsubscribe = onSnapshot(
+    catCol,
+    (snapshot) => {
+      if (snapshot.empty) {
+        if (initialFallback && initialFallback.length > 0) {
+          const cleanFallback = initialFallback.filter(c => !PURGED_CATEGORY_IDS.has(c.id) && !PURGED_CATEGORY_IDS.has(c.slug));
+          seedInitialCategories(cleanFallback).catch(err => {
+            console.warn('Seeding initial categories warning:', err);
+          });
+          onUpdate(cleanFallback);
+          return;
+        }
+        onUpdate([]);
+        return;
+      }
+
+      const cats: Category[] = [];
+      snapshot.forEach(docSnap => {
+        const catData = docSnap.data() as Category;
+        const catId = docSnap.id;
+        // Purge requested removed categories directly from Firestore
+        if (PURGED_CATEGORY_IDS.has(catId) || PURGED_CATEGORY_IDS.has(catData.slug) || PURGED_CATEGORY_IDS.has(catData.id)) {
+          deleteDoc(doc(db, 'categories', catId)).catch(err => {
+            console.warn(`Cleaned purged category doc ${catId}:`, err);
+          });
+          return;
+        }
+        cats.push(catData);
+      });
+
+      // Synchronize missing initial categories (e.g. newly added categories)
+      if (initialFallback && initialFallback.length > 0) {
+        const cleanFallback = initialFallback.filter(c => !PURGED_CATEGORY_IDS.has(c.id) && !PURGED_CATEGORY_IDS.has(c.slug));
+        const existingIds = new Set(cats.map(c => c.id));
+        const missing = cleanFallback.filter(c => !existingIds.has(c.id));
+        if (missing.length > 0) {
+          seedInitialCategories(missing).catch(err => {
+            console.warn('Seeding missing categories warning:', err);
+          });
+          cats.push(...missing);
+        }
+      }
+
+      onUpdate(cats);
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.LIST, path);
+    }
+  );
+
+  return unsubscribe;
+}
+
+export async function deleteCategoryFromFirestore(categoryId: string): Promise<void> {
+  const path = `categories/${categoryId}`;
+  try {
+    await deleteDoc(doc(db, 'categories', categoryId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+    throw error;
+  }
+}
+
+export async function saveCategoryToFirestore(category: Category): Promise<void> {
+  const path = `categories/${category.id}`;
+  try {
+    await setDoc(doc(db, 'categories', category.id), sanitizeForFirestore(category));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+    throw error;
+  }
+}
+
+export async function seedInitialCategories(initialCategories: Category[]): Promise<void> {
+  try {
+    const batch = writeBatch(db);
+    initialCategories.forEach(c => {
+      const docRef = doc(db, 'categories', c.id);
+      batch.set(docRef, sanitizeForFirestore(c));
+    });
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'categories');
   }
 }
 
