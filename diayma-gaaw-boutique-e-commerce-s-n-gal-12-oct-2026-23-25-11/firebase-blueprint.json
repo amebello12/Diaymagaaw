@@ -1,0 +1,163 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Article commercial mis en vente sur la boutique DIAYMA GAAW",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 300 },
+        "slug": { "type": "string", "maxLength": 300 },
+        "category": { "type": "string", "maxLength": 100 },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "discountPercent": { "type": "number" },
+        "rating": { "type": "number" },
+        "reviewsCount": { "type": "number" },
+        "images": { "type": "array" },
+        "description": { "type": "string", "maxLength": 5000 },
+        "features": { "type": "array" },
+        "stock": { "type": "number" },
+        "isFeatured": { "type": "boolean" },
+        "isFlashSale": { "type": "boolean" },
+        "isNew": { "type": "boolean" },
+        "brand": { "type": "string", "maxLength": 100 },
+        "sku": { "type": "string", "maxLength": 100 },
+        "warranty": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["id", "name", "category", "price", "stock", "description"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Catégorie d'articles du catalogue",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 150 },
+        "slug": { "type": "string", "maxLength": 150 },
+        "icon": { "type": "string", "maxLength": 100 },
+        "image": { "type": "string", "maxLength": 1000 },
+        "itemCount": { "type": "number" },
+        "description": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "name", "slug"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Commande client passée sur le site",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string", "maxLength": 200 },
+        "customerPhone": { "type": "string", "maxLength": 50 },
+        "customerCity": { "type": "string", "maxLength": 100 },
+        "customerAddress": { "type": "string", "maxLength": 500 },
+        "deliveryZoneId": { "type": "string", "maxLength": 100 },
+        "paymentMethod": { "type": "string", "maxLength": 50 },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "deliveryFee": { "type": "number" },
+        "discount": { "type": "number" },
+        "total": { "type": "number" },
+        "orderStatus": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "maxLength": 100 },
+        "notes": { "type": "string", "maxLength": 1000 }
+      },
+      "required": ["id", "customerName", "customerPhone", "items", "total"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Avis client sur un produit",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string", "maxLength": 100 },
+        "authorName": { "type": "string", "maxLength": 150 },
+        "city": { "type": "string", "maxLength": 100 },
+        "rating": { "type": "number" },
+        "date": { "type": "string", "maxLength": 100 },
+        "comment": { "type": "string", "maxLength": 2000 },
+        "verifiedPurchase": { "type": "boolean" }
+      },
+      "required": ["id", "productId", "authorName", "rating", "comment"]
+    },
+    "DeliveryZone": {
+      "title": "DeliveryZone",
+      "description": "Zone et tarif de livraison",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 200 },
+        "price": { "type": "number" },
+        "estimatedTime": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 500 },
+        "regions": { "type": "array" }
+      },
+      "required": ["id", "name", "price"]
+    },
+    "PromoCode": {
+      "title": "PromoCode",
+      "description": "Code promotionnel de remise",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "maxLength": 50 },
+        "discountPercent": { "type": "number" },
+        "description": { "type": "string", "maxLength": 300 }
+      },
+      "required": ["code", "discountPercent"]
+    },
+    "StoreSettings": {
+      "title": "StoreSettings",
+      "description": "Paramètres généraux de la boutique DIAYMA GAAW",
+      "type": "object",
+      "properties": {
+        "storeName": { "type": "string", "maxLength": 150 },
+        "slogan": { "type": "string", "maxLength": 250 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "whatsappPhone": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 150 },
+        "address": { "type": "string", "maxLength": 300 },
+        "currency": { "type": "string", "maxLength": 20 },
+        "freeShippingThreshold": { "type": "number" },
+        "enableWave": { "type": "boolean" },
+        "enableOrangeMoney": { "type": "boolean" },
+        "enableFreeMoney": { "type": "boolean" },
+        "enableCashOnDelivery": { "type": "boolean" },
+        "orderNoticeEmail": { "type": "string", "maxLength": 150 },
+        "deliveryNotificationWhatsApp": { "type": "boolean" },
+        "showAdminLockInFooter": { "type": "boolean" }
+      },
+      "required": ["storeName", "phone", "whatsappPhone"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Articles et produits synchronisés du catalogue de la boutique"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Catégories de produits"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Commandes passées par les clients"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Avis vérifiés des acheteurs"
+    },
+    "/delivery_zones/{zoneId}": {
+      "schema": "DeliveryZone",
+      "description": "Zones et tarifs de livraison au Sénégal"
+    },
+    "/promo_codes/{codeId}": {
+      "schema": "PromoCode",
+      "description": "Codes promos de réduction"
+    },
+    "/settings/{settingId}": {
+      "schema": "StoreSettings",
+      "description": "Paramètres globaux de la boutique"
+    }
+  }
+}

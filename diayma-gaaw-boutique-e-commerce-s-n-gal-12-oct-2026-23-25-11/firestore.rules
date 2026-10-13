@@ -1,0 +1,124 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'diassy38@gmail.com' && request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidProduct(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 500 &&
+             data.price is number && data.price >= 0;
+    }
+
+    function isValidCategory(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 200;
+    }
+
+    function isValidOrder(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 300 &&
+             data.customerPhone is string && data.customerPhone.size() > 0 && data.customerPhone.size() <= 100 &&
+             data.total is number && data.total >= 0;
+    }
+
+    function isValidReview(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.productId is string && data.productId.size() <= 128 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() <= 200 &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5;
+    }
+
+    function isValidDeliveryZone(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 300 &&
+             data.price is number && data.price >= 0;
+    }
+
+    function isValidPromo(data) {
+      return data.code is string && data.code.size() > 0 && data.code.size() <= 100 &&
+             data.discountPercent is number && data.discountPercent >= 0 && data.discountPercent <= 100;
+    }
+
+    function isValidSettings(data) {
+      return data.storeName is string && data.storeName.size() > 0 && data.storeName.size() <= 200;
+    }
+
+    // Products collection (public catalog with synchronized updates across all devices)
+    match /products/{productId} {
+      allow get, list: if true;
+      allow create: if isValidId(productId) && isValidProduct(incoming());
+      allow update: if isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isValidId(productId);
+    }
+
+    // Categories
+    match /categories/{categoryId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(categoryId) && isValidCategory(incoming());
+      allow delete: if isValidId(categoryId);
+    }
+
+    // Orders
+    match /orders/{orderId} {
+      allow get, list: if true;
+      allow create: if isValidId(orderId) && isValidOrder(incoming());
+      allow update, delete: if isValidId(orderId);
+    }
+
+    // Reviews
+    match /reviews/{reviewId} {
+      allow get, list: if true;
+      allow create: if isValidId(reviewId) && isValidReview(incoming());
+      allow update, delete: if isValidId(reviewId);
+    }
+
+    // Delivery Zones
+    match /delivery_zones/{zoneId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(zoneId) && isValidDeliveryZone(incoming());
+      allow delete: if isValidId(zoneId);
+    }
+
+    // Promo Codes
+    match /promo_codes/{codeId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(codeId) && isValidPromo(incoming());
+      allow delete: if isValidId(codeId);
+    }
+
+    // Store Settings
+    match /settings/{settingId} {
+      allow get, list: if true;
+      allow write: if isValidId(settingId) && isValidSettings(incoming());
+    }
+
+    // Default deny-all for any other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
