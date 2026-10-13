@@ -132,6 +132,11 @@ interface AdminPanelModalProps {
   onResetDashboardStats?: () => void;
   onResetStockAlerts?: () => void;
   onResetAllAdmin?: () => void;
+  onDeleteAllProducts?: () => void;
+  onDeleteAllPromoCodes?: () => void;
+  onResetProductDiscounts?: () => void;
+  onRestoreDefaultProducts?: () => void;
+  onRestoreDefaultPromos?: () => void;
   reviews?: Review[];
   onDeleteReview?: (reviewId: string) => void;
   visitorStats?: VisitorStats;
@@ -167,6 +172,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onResetDashboardStats,
   onResetStockAlerts,
   onResetAllAdmin,
+  onDeleteAllProducts,
+  onDeleteAllPromoCodes,
+  onResetProductDiscounts,
+  onRestoreDefaultProducts,
+  onRestoreDefaultPromos,
   reviews = [],
   onDeleteReview,
   visitorStats,
@@ -238,6 +248,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [newPromoCode, setNewPromoCode] = useState('');
   const [newPromoDiscount, setNewPromoDiscount] = useState(10);
   const [newPromoDesc, setNewPromoDesc] = useState('');
+  const [promoFeedback, setPromoFeedback] = useState<string | null>(null);
 
   // Store Settings State
   const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => {
@@ -390,6 +401,23 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       }
       setResetFeedback("Tout le panneau d'administration et les statistiques ont été réinitialisés avec succès !");
       setTimeout(() => setResetFeedback(null), 4000);
+    }
+  };
+
+  const handleTriggerDeleteAllProducts = () => {
+    if (window.confirm(`⚠️ ATTENTION ACTION IRRÉVERSIBLE :\n\nVoulez-vous vraiment supprimer TOUS les ${products.length} articles du catalogue ?\n\nLe catalogue sera remis à zéro (0 article) et apparaîtra vide immédiatement en direct pour tous les visiteurs et clients sur le site.\n\nConfirmer la suppression complète du catalogue ?`)) {
+      onDeleteAllProducts?.();
+      setResetFeedback(`Catalogue entièrement vidé : 0 article en direct sur le site !`);
+      setTimeout(() => setResetFeedback(null), 5000);
+    }
+  };
+
+  const handleTriggerDeleteAllPromos = () => {
+    if (window.confirm(`⚠️ ATTENTION :\n\nVoulez-vous supprimer TOUS les codes de réduction (${promoCodes.length}) et annuler les remises sur les articles ?\n\nToutes les promotions seront remises à zéro.\n\nConfirmer la remise à zéro des promos ?`)) {
+      onDeleteAllPromoCodes?.();
+      onResetProductDiscounts?.();
+      setResetFeedback(`Toutes les promotions et codes de réduction ont été remis à zéro avec succès !`);
+      setTimeout(() => setResetFeedback(null), 5000);
     }
   };
 
@@ -1005,7 +1033,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
                       <button
                         onClick={handleTriggerResetDashboard}
                         className="p-3 bg-white/10 hover:bg-white/20 border border-white/15 rounded-xl text-left transition flex items-center gap-3 group"
@@ -1017,6 +1045,34 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         <div>
                           <span className="text-xs font-bold text-white block">Remise à zéro Chiffre d'Affaires</span>
                           <span className="text-[11px] text-gray-300 block">CA = 0 FCFA • 0 commande</span>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={handleTriggerDeleteAllProducts}
+                        className="p-3 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-xl text-left transition flex items-center gap-3 group"
+                        title="Supprimer tous les articles du catalogue (remettre le catalogue à zéro)"
+                      >
+                        <div className="p-2.5 bg-red-400/30 text-red-200 rounded-lg group-hover:scale-105 transition shrink-0">
+                          <Package className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-white block">Remettre le Catalogue à zéro</span>
+                          <span className="text-[11px] text-red-200 block">Supprimer tous les articles ({products.length})</span>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={handleTriggerDeleteAllPromos}
+                        className="p-3 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/30 rounded-xl text-left transition flex items-center gap-3 group"
+                        title="Supprimer tous les codes promotionnels et remettre les remises à zéro"
+                      >
+                        <div className="p-2.5 bg-amber-400/30 text-amber-200 rounded-lg group-hover:scale-105 transition shrink-0">
+                          <Tag className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-white block">Remettre les Promos à zéro</span>
+                          <span className="text-[11px] text-amber-200 block">Supprimer codes promo & remises</span>
                         </div>
                       </button>
 
@@ -1057,8 +1113,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           <RefreshCw className="w-4 h-4" />
                         </div>
                         <div>
-                          <span className="text-xs font-bold text-white block">Réinitialisation Complète</span>
-                          <span className="text-[11px] text-gray-300 block">Dashboard, visiteurs et stocks</span>
+                          <span className="text-xs font-bold text-white block">Réinitialisation Globale</span>
+                          <span className="text-[11px] text-gray-300 block">Restaurer configuration saine</span>
                         </div>
                       </button>
                     </div>
@@ -1612,13 +1668,69 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     </div>
 
                     {!isAddingNewProduct && !editingProduct && (
-                      <button
-                        onClick={startAddNew}
-                        className="px-4 py-2.5 bg-red-600 hover:bg-red-700 active:scale-98 text-white text-xs font-bold rounded-xl shadow flex items-center justify-center gap-1.5 transition shrink-0"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Ajouter un produit</span>
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <button
+                          onClick={startAddNew}
+                          className="px-4 py-2.5 bg-red-600 hover:bg-red-700 active:scale-98 text-white text-xs font-bold rounded-xl shadow flex items-center justify-center gap-1.5 transition"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Ajouter un produit</span>
+                        </button>
+
+                        {products.length > 0 && onDeleteAllProducts && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`⚠️ ATTENTION ACTION IRRÉVERSIBLE :\n\nVoulez-vous vraiment supprimer TOUS les ${products.length} articles du catalogue ?\n\nCette action remettra le catalogue à zéro (0 article). Les visiteurs et clients connectés verront immédiatement un catalogue vide en direct sur le site.\n\nConfirmer la suppression complète de tous les articles ?`)) {
+                                onDeleteAllProducts();
+                                setProductFeedback(`Le catalogue a été entièrement vidé (0 article) et synchronisé en direct sur le site !`);
+                                setTimeout(() => setProductFeedback(null), 5000);
+                              }
+                            }}
+                            className="px-3.5 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                            title="Supprimer tous les articles du catalogue (remettre à zéro)"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                            <span>Vider tout le catalogue ({products.length})</span>
+                          </button>
+                        )}
+
+                        {products.some(p => (p.discountPercent && p.discountPercent > 0) || p.isFlashSale) && onResetProductDiscounts && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Voulez-vous remettre à zéro toutes les réductions et soldes flash sur les articles ?\n\nTous les prix reviendront à leur tarif de base sans supprimer les articles.`)) {
+                                onResetProductDiscounts();
+                                setProductFeedback(`Toutes les promotions et remises du catalogue ont été remises à zéro !`);
+                                setTimeout(() => setProductFeedback(null), 5000);
+                              }
+                            }}
+                            className="px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                            title="Remettre les promotions et remises à zéro"
+                          >
+                            <Tag className="w-4 h-4 text-amber-600" />
+                            <span>Remettre promos articles à 0</span>
+                          </button>
+                        )}
+
+                        {products.length === 0 && onRestoreDefaultProducts && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm('Voulez-vous réinitialiser le catalogue avec les articles de démonstration ?')) {
+                                onRestoreDefaultProducts();
+                                setProductFeedback(`Articles de démonstration réinitialisés au catalogue avec succès !`);
+                                setTimeout(() => setProductFeedback(null), 5000);
+                              }
+                            }}
+                            className="px-3.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                            title="Restaurer les articles de démo"
+                          >
+                            <RotateCcw className="w-4 h-4 text-gray-600" />
+                            <span>Restaurer articles démo</span>
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -2141,11 +2253,43 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       </table>
                     </div>
 
-                    {filteredProducts.length === 0 && (
+                    {products.length === 0 ? (
+                      <div className="p-10 text-center space-y-3 bg-gray-50/50">
+                        <div className="w-14 h-14 mx-auto rounded-2xl bg-red-100/60 text-red-600 flex items-center justify-center">
+                          <Package className="w-7 h-7" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-extrabold text-gray-900">Le catalogue est actuellement vide (0 article)</h4>
+                          <p className="text-xs text-gray-500 max-w-md mx-auto mt-1">
+                            Tous les articles ont été supprimés. Les visiteurs et clients connectés voient un catalogue à zéro en direct sur le site.
+                          </p>
+                        </div>
+                        <div className="flex justify-center items-center gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={startAddNew}
+                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span>Ajouter un premier produit</span>
+                          </button>
+                          {onRestoreDefaultProducts && (
+                            <button
+                              type="button"
+                              onClick={onRestoreDefaultProducts}
+                              className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Restaurer articles démo</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : filteredProducts.length === 0 ? (
                       <div className="p-8 text-center text-xs text-gray-500">
                         Aucun article ne correspond à votre recherche "{productSearch}".
                       </div>
-                    )}
+                    ) : null}
                   </div>
 
                 </div>
@@ -2336,6 +2480,23 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               {/* TAB 4: PROMO CODES */}
               {tab === 'promos' && (
                 <div className="space-y-6">
+
+                  {/* Promo Action Feedback Banner */}
+                  {promoFeedback && (
+                    <div className="p-3.5 bg-emerald-600 text-white rounded-2xl text-xs font-bold shadow-md flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-1">
+                      <span className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-200 shrink-0" />
+                        {promoFeedback}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPromoFeedback(null)}
+                        className="text-emerald-100 hover:text-white p-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                   
                   {/* Create New Promo Code Form */}
                   <form onSubmit={handleSavePromo} className="p-5 bg-amber-50/50 rounded-3xl border border-amber-200 space-y-4">
@@ -2395,35 +2556,94 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
                   {/* Active Promo Codes List */}
                   <div className="space-y-3">
-                    <h4 className="font-bold text-sm text-gray-900">Codes promotionnels actifs au Sénégal</h4>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {promoCodes.map((p, idx) => (
-                        <div key={idx} className="p-4 bg-white rounded-2xl border border-gray-200 shadow-xs flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-black text-sm text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">
-                                {p.code}
-                              </span>
-                              <span className="font-extrabold text-xs text-gray-900">
-                                -{p.discountPercent}%
-                              </span>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1 truncate">{p.description}</p>
-                          </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-200">
+                      <div>
+                        <h4 className="font-bold text-sm text-gray-900 flex items-center gap-2">
+                          <Tag className="w-4 h-4 text-red-600" />
+                          <span>Codes promotionnels actifs au Sénégal ({promoCodes.length})</span>
+                        </h4>
+                        <p className="text-xs text-gray-500">
+                          {promoCodes.length > 0
+                            ? 'Codes applicables immédiatement par vos clients à la commande.'
+                            : 'Aucun code promotionnel actuellement en vigueur.'}
+                        </p>
+                      </div>
 
-                          {onDeletePromoCode && (
-                            <button
-                              onClick={() => onDeletePromoCode(p.code)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                              title="Supprimer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                      <div className="flex items-center gap-2">
+                        {promoCodes.length > 0 && onDeleteAllPromoCodes && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`⚠️ ATTENTION :\n\nVoulez-vous supprimer TOUS les ${promoCodes.length} codes promotionnels ?\n\nCette action remettra à zéro tous les codes promo en direct sur le site.\n\nConfirmer la suppression ?`)) {
+                                onDeleteAllPromoCodes();
+                                setPromoFeedback(`Tous les codes promo ont été supprimés (remis à zéro) avec succès !`);
+                                setTimeout(() => setPromoFeedback(null), 5000);
+                              }
+                            }}
+                            className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                            title="Supprimer tous les codes promo (remettre à zéro)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                            <span>Supprimer tous les codes promo ({promoCodes.length})</span>
+                          </button>
+                        )}
+
+                        {promoCodes.length === 0 && onRestoreDefaultPromos && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onRestoreDefaultPromos();
+                              setPromoFeedback(`Codes promotionnels de démonstration restaurés avec succès.`);
+                              setTimeout(() => setPromoFeedback(null), 5000);
+                            }}
+                            className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-gray-600" />
+                            <span>Restaurer codes par défaut</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
+                    
+                    {promoCodes.length === 0 ? (
+                      <div className="p-10 text-center space-y-3 bg-gray-50 border border-gray-200 rounded-2xl">
+                        <div className="w-12 h-12 mx-auto rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                          <Tag className="w-6 h-6" />
+                        </div>
+                        <h4 className="text-sm font-bold text-gray-800">Aucun code promo actif (0 promotion)</h4>
+                        <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                          Les promotions sont remises à zéro. Vous pouvez créer un nouveau code promotionnel ci-dessus à tout moment.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {promoCodes.map((p, idx) => (
+                          <div key={idx} className="p-4 bg-white rounded-2xl border border-gray-200 shadow-xs flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-black text-sm text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">
+                                  {p.code}
+                                </span>
+                                <span className="font-extrabold text-xs text-gray-900">
+                                  -{p.discountPercent}%
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1 truncate">{p.description}</p>
+                            </div>
+
+                            {onDeletePromoCode && (
+                              <button
+                                onClick={() => onDeletePromoCode(p.code)}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                 </div>

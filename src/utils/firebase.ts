@@ -126,33 +126,37 @@ export function subscribeToProducts(
     productsCol,
     (snapshot) => {
       updateSyncStatus('connected');
+      const isCleared = typeof window !== 'undefined' && localStorage.getItem('dg_catalog_cleared') === 'true';
+
       if (snapshot.empty) {
-        // If Firestore products collection is empty on first setup, seed with initial catalog
-        if (initialFallback && initialFallback.length > 0) {
+        // If Firestore products collection is empty on first setup and NOT intentionally cleared by admin
+        if (!isCleared && initialFallback && initialFallback.length > 0 && !localStorage.getItem('dg_catalog_initialized')) {
           seedInitialProducts(initialFallback).catch(err => {
             console.warn('Seeding initial products warning:', err);
           });
+          try {
+            localStorage.setItem('dg_catalog_initialized', 'true');
+          } catch {
+            // ignore
+          }
+          onUpdate(initialFallback);
+          return;
         }
-        onUpdate(initialFallback || []);
+        // When cleared or empty, update state with empty array!
+        onUpdate([]);
         return;
+      }
+
+      try {
+        localStorage.setItem('dg_catalog_initialized', 'true');
+      } catch {
+        // ignore
       }
 
       const prods: Product[] = [];
       snapshot.forEach(docSnap => {
         prods.push(docSnap.data() as Product);
       });
-
-      // Synchronize missing initial products (e.g. newly added categories and catalog items)
-      if (initialFallback && initialFallback.length > 0) {
-        const existingIds = new Set(prods.map(p => p.id));
-        const missingInitial = initialFallback.filter(p => !existingIds.has(p.id));
-        if (missingInitial.length > 0) {
-          seedInitialProducts(missingInitial).catch(err => {
-            console.warn('Syncing missing initial products to Firestore:', err);
-          });
-          prods.push(...missingInitial);
-        }
-      }
 
       // Sort: Newly created products (timestamp in ID) appear first at the top of the store!
       prods.sort((a, b) => {
@@ -202,6 +206,65 @@ export async function deleteProductFromFirestore(productId: string): Promise<voi
   }
 }
 
+/**
+ * Supprime tous les articles du catalogue Firestore (remise à zéro complète pour tous les clients)
+ */
+export async function deleteAllProductsFromFirestore(): Promise<void> {
+  const path = 'products';
+  updateSyncStatus('syncing');
+  try {
+    const snapshot = await getDocs(collection(db, 'products'));
+    if (!snapshot.empty) {
+      const batch = writeBatch(db);
+      snapshot.forEach(docSnap => {
+        batch.delete(doc(db, 'products', docSnap.id));
+      });
+      await batch.commit();
+    }
+    try {
+      localStorage.setItem('dg_catalog_cleared', 'true');
+      localStorage.setItem('dg_products', JSON.stringify([]));
+    } catch {
+      // ignore
+    }
+    updateSyncStatus('connected');
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+    updateSyncStatus('offline');
+    throw error;
+  }
+}
+
+/**
+ * Remet à zéro toutes les réductions et soldes flash sur l'ensemble des articles du catalogue
+ */
+export async function resetAllProductDiscountsInFirestore(): Promise<void> {
+  const path = 'products';
+  updateSyncStatus('syncing');
+  try {
+    const snapshot = await getDocs(collection(db, 'products'));
+    if (!snapshot.empty) {
+      const batch = writeBatch(db);
+      snapshot.forEach(docSnap => {
+        const prod = docSnap.data() as Product;
+        const updated: Product = {
+          ...prod,
+          discountPercent: 0,
+          originalPrice: undefined,
+          isFlashSale: false
+        };
+        batch.set(doc(db, 'products', docSnap.id), sanitizeForFirestore(updated));
+      });
+      await batch.commit();
+    }
+    updateSyncStatus('connected');
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+    updateSyncStatus('offline');
+    throw error;
+  }
+}
+
 export async function seedInitialProducts(initialProducts: Product[]): Promise<void> {
   updateSyncStatus('syncing');
   try {
@@ -211,6 +274,13 @@ export async function seedInitialProducts(initialProducts: Product[]): Promise<v
       batch.set(docRef, sanitizeForFirestore(prod));
     });
     await batch.commit();
+    try {
+      localStorage.removeItem('dg_catalog_cleared');
+      localStorage.setItem('dg_catalog_initialized', 'true');
+      localStorage.setItem('dg_products', JSON.stringify(initialProducts));
+    } catch {
+      // ignore
+    }
     updateSyncStatus('connected');
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'products');
@@ -439,25 +509,38 @@ export function subscribeToPromoCodes(
   const unsubscribe = onSnapshot(
     col,
     (snapshot) => {
-      if (snapshot.empty && initialPromos && initialPromos.length > 0) {
-        const batch = writeBatch(db);
-        initialPromos.forEach(p => {
-          batch.set(doc(db, 'promo_codes', p.code), sanitizeForFirestore(p));
-        });
-        batch.commit().catch(() => {});
-        onUpdate(initialPromos);
+      const isCleared = typeof window !== 'undefined' && localStorage.getItem('dg_promos_cleared') === 'true';
+
+      if (snapshot.empty) {
+        if (!isCleared && initialPromos && initialPromos.length > 0 && !localStorage.getItem('dg_promos_initialized')) {
+          const batch = writeBatch(db);
+          initialPromos.forEach(p => {
+            batch.set(doc(db, 'promo_codes', p.code), sanitizeForFirestore(p));
+          });
+          batch.commit().catch(() => {});
+          try {
+            localStorage.setItem('dg_promos_initialized', 'true');
+          } catch {
+            // ignore
+          }
+          onUpdate(initialPromos);
+          return;
+        }
+        onUpdate([]);
         return;
+      }
+
+      try {
+        localStorage.setItem('dg_promos_initialized', 'true');
+      } catch {
+        // ignore
       }
 
       const promos: PromoCode[] = [];
       snapshot.forEach(docSnap => {
         promos.push(docSnap.data() as PromoCode);
       });
-      if (promos.length > 0) {
-        onUpdate(promos);
-      } else if (initialPromos) {
-        onUpdate(initialPromos);
-      }
+      onUpdate(promos);
     },
     (error) => {
       handleFirestoreError(error, OperationType.LIST, path);
@@ -471,6 +554,11 @@ export async function savePromoCodeToFirestore(promo: PromoCode): Promise<void> 
   const path = `promo_codes/${promo.code}`;
   try {
     await setDoc(doc(db, 'promo_codes', promo.code), sanitizeForFirestore(promo));
+    try {
+      localStorage.removeItem('dg_promos_cleared');
+    } catch {
+      // ignore
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
     throw error;
@@ -481,6 +569,32 @@ export async function deletePromoCodeFromFirestore(code: string): Promise<void> 
   const path = `promo_codes/${code}`;
   try {
     await deleteDoc(doc(db, 'promo_codes', code));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+    throw error;
+  }
+}
+
+/**
+ * Supprime tous les codes promotionnels de Firestore (remise à zéro des promos)
+ */
+export async function deleteAllPromoCodesFromFirestore(): Promise<void> {
+  const path = 'promo_codes';
+  try {
+    const snapshot = await getDocs(collection(db, 'promo_codes'));
+    if (!snapshot.empty) {
+      const batch = writeBatch(db);
+      snapshot.forEach(docSnap => {
+        batch.delete(doc(db, 'promo_codes', docSnap.id));
+      });
+      await batch.commit();
+    }
+    try {
+      localStorage.setItem('dg_promos_cleared', 'true');
+      localStorage.setItem('dg_promos', JSON.stringify([]));
+    } catch {
+      // ignore
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
     throw error;

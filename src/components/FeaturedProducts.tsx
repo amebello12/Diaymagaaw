@@ -124,29 +124,43 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
           </div>
         </div>
 
-        {/* Product Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
-          {filteredProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onSelectProduct={onSelectProduct}
-              onAddToCart={onAddToCart}
-              onBuyNow={onBuyNow}
-            />
-          ))}
-        </div>
+        {products.length === 0 ? (
+          <div className="bg-white rounded-3xl p-10 text-center border border-gray-200 max-w-md mx-auto space-y-3 shadow-xs">
+            <div className="w-12 h-12 bg-red-50 text-red-600 rounded-2xl mx-auto flex items-center justify-center font-bold text-lg">
+              ✨
+            </div>
+            <h3 className="text-base font-bold text-gray-900">Catalogue en cours de renouvellement</h3>
+            <p className="text-xs text-gray-500">
+              De nouveaux arrivages de haute qualité arrivent bientôt à Dakar. Contactez notre équipe sur WhatsApp pour toute commande !
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Product Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+              {filteredProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onSelectProduct={onSelectProduct}
+                  onAddToCart={onAddToCart}
+                  onBuyNow={onBuyNow}
+                />
+              ))}
+            </div>
 
-        {/* View All CTA */}
-        <div className="mt-10 text-center">
-          <button
-            onClick={handleViewAll}
-            className="px-8 py-3.5 bg-white hover:bg-gray-100 text-gray-900 font-extrabold text-sm rounded-2xl border-2 border-gray-200 hover:border-gray-400 shadow-sm transition inline-flex items-center gap-2 cursor-pointer"
-          >
-            <span>Voir l'ensemble du catalogue ({products.length} produits)</span>
-            <span>→</span>
-          </button>
-        </div>
+            {/* View All CTA */}
+            <div className="mt-10 text-center">
+              <button
+                onClick={handleViewAll}
+                className="px-8 py-3.5 bg-white hover:bg-gray-100 text-gray-900 font-extrabold text-sm rounded-2xl border-2 border-gray-200 hover:border-gray-400 shadow-sm transition inline-flex items-center gap-2 cursor-pointer"
+              >
+                <span>Voir l'ensemble du catalogue ({products.length} produits)</span>
+                <span>→</span>
+              </button>
+            </div>
+          </>
+        )}
 
       </div>
     </section>

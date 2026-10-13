@@ -26,6 +26,8 @@ import {
   subscribeToProducts,
   saveProductToFirestore,
   deleteProductFromFirestore,
+  deleteAllProductsFromFirestore,
+  resetAllProductDiscountsInFirestore,
   seedInitialProducts,
   subscribeToCategories,
   saveCategoryToFirestore,
@@ -40,6 +42,7 @@ import {
   subscribeToPromoCodes,
   savePromoCodeToFirestore,
   deletePromoCodeFromFirestore,
+  deleteAllPromoCodesFromFirestore,
   subscribeToReviews,
   saveReviewToFirestore,
   deleteReviewFromFirestore,
@@ -74,6 +77,9 @@ export default function App() {
   // 1. Core State with Local Storage Synchronization
   const [products, setProducts] = useState<Product[]>(() => {
     try {
+      if (localStorage.getItem('dg_catalog_cleared') === 'true') {
+        return [];
+      }
       const saved = localStorage.getItem('dg_products');
       if (saved) {
         const parsed: Product[] = JSON.parse(saved);
@@ -143,6 +149,9 @@ export default function App() {
   
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() => {
     try {
+      if (localStorage.getItem('dg_promos_cleared') === 'true') {
+        return [];
+      }
       const saved = localStorage.getItem('dg_promos');
       return saved ? JSON.parse(saved) : INITIAL_PROMO_CODES;
     } catch {
@@ -211,7 +220,7 @@ export default function App() {
 
     // Synchronisation en temps réel des articles du catalogue
     const unsubProducts = subscribeToProducts((cloudProducts) => {
-      if (cloudProducts && cloudProducts.length > 0) {
+      if (cloudProducts !== undefined) {
         const cleaned = cloudProducts.map(p => {
           if (p.category === 'tv-home-cinema') return { ...p, category: 'tv-audio' };
           if (p.category === 'maison') return { ...p, category: 'electromenager' };
@@ -220,6 +229,11 @@ export default function App() {
         setProducts(cleaned);
         try {
           localStorage.setItem('dg_products', JSON.stringify(cleaned));
+          if (cleaned.length === 0) {
+            localStorage.setItem('dg_catalog_cleared', 'true');
+          } else {
+            localStorage.removeItem('dg_catalog_cleared');
+          }
         } catch {
           // ignore
         }
@@ -260,8 +274,18 @@ export default function App() {
 
     // Synchronisation des codes promos
     const unsubPromos = subscribeToPromoCodes((cloudPromos) => {
-      if (cloudPromos && cloudPromos.length > 0) {
+      if (cloudPromos !== undefined) {
         setPromoCodes(cloudPromos);
+        try {
+          localStorage.setItem('dg_promos', JSON.stringify(cloudPromos));
+          if (cloudPromos.length === 0) {
+            localStorage.setItem('dg_promos_cleared', 'true');
+          } else {
+            localStorage.removeItem('dg_promos_cleared');
+          }
+        } catch {
+          // ignore
+        }
       }
     }, INITIAL_PROMO_CODES);
 
@@ -641,6 +665,91 @@ export default function App() {
     }
   };
 
+  /**
+   * Remet à zéro tous les articles du catalogue (0 article dans la boutique et sur Firestore)
+   */
+  const handleDeleteAllProducts = async () => {
+    try {
+      localStorage.setItem('dg_catalog_cleared', 'true');
+      localStorage.setItem('dg_products', JSON.stringify([]));
+      setProducts([]);
+      setCartItems([]);
+      await deleteAllProductsFromFirestore();
+    } catch (e) {
+      console.warn('Delete all products fallback:', e);
+    }
+  };
+
+  /**
+   * Remet à zéro tous les codes de réduction (0 code promo dans la boutique et sur Firestore)
+   */
+  const handleDeleteAllPromoCodes = async () => {
+    try {
+      localStorage.setItem('dg_promos_cleared', 'true');
+      localStorage.setItem('dg_promos', JSON.stringify([]));
+      setPromoCodes([]);
+      setAppliedPromo(null);
+      await deleteAllPromoCodesFromFirestore();
+    } catch (e) {
+      console.warn('Delete all promos fallback:', e);
+    }
+  };
+
+  /**
+   * Remet à zéro les pourcentages de remise et désactive les ventes flash sur tous les articles
+   */
+  const handleResetProductDiscounts = async () => {
+    setProducts(prev => {
+      const updated = prev.map(p => ({
+        ...p,
+        discountPercent: 0,
+        originalPrice: undefined,
+        isFlashSale: false
+      }));
+      try {
+        localStorage.setItem('dg_products', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+    try {
+      await resetAllProductDiscountsInFirestore();
+    } catch (e) {
+      console.warn('Reset discounts fallback:', e);
+    }
+  };
+
+  /**
+   * Restaure les articles de démonstration initiaux si souhaité
+   */
+  const handleRestoreDefaultProducts = async () => {
+    try {
+      localStorage.removeItem('dg_catalog_cleared');
+      localStorage.setItem('dg_products', JSON.stringify(INITIAL_PRODUCTS));
+      setProducts(INITIAL_PRODUCTS);
+      await seedInitialProducts(INITIAL_PRODUCTS);
+    } catch (e) {
+      console.warn('Restore initial products fallback:', e);
+    }
+  };
+
+  /**
+   * Restaure les codes promotionnels par défaut si souhaité
+   */
+  const handleRestoreDefaultPromos = async () => {
+    try {
+      localStorage.removeItem('dg_promos_cleared');
+      localStorage.setItem('dg_promos', JSON.stringify(INITIAL_PROMO_CODES));
+      setPromoCodes(INITIAL_PROMO_CODES);
+      for (const p of INITIAL_PROMO_CODES) {
+        savePromoCodeToFirestore(p).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('Restore initial promos fallback:', e);
+    }
+  };
+
   // Delivery Zone Management Handlers
   const handleUpdateDeliveryZone = async (zoneId: string, updatedFields: Partial<DeliveryZone>) => {
     let targetZone: DeliveryZone | undefined;
@@ -935,6 +1044,11 @@ export default function App() {
             onResetDashboardStats={handleResetDashboardStats}
             onResetStockAlerts={handleResetStockAlerts}
             onResetAllAdmin={handleResetAllAdmin}
+            onDeleteAllProducts={handleDeleteAllProducts}
+            onDeleteAllPromoCodes={handleDeleteAllPromoCodes}
+            onResetProductDiscounts={handleResetProductDiscounts}
+            onRestoreDefaultProducts={handleRestoreDefaultProducts}
+            onRestoreDefaultPromos={handleRestoreDefaultPromos}
             reviews={reviews}
             onDeleteReview={handleDeleteReview}
             visitorStats={visitorStats}
@@ -1055,6 +1169,11 @@ export default function App() {
           onResetDashboardStats={handleResetDashboardStats}
           onResetStockAlerts={handleResetStockAlerts}
           onResetAllAdmin={handleResetAllAdmin}
+          onDeleteAllProducts={handleDeleteAllProducts}
+          onDeleteAllPromoCodes={handleDeleteAllPromoCodes}
+          onResetProductDiscounts={handleResetProductDiscounts}
+          onRestoreDefaultProducts={handleRestoreDefaultProducts}
+          onRestoreDefaultPromos={handleRestoreDefaultPromos}
           reviews={reviews}
           onDeleteReview={handleDeleteReview}
           visitorStats={visitorStats}

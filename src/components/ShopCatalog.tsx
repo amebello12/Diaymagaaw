@@ -228,7 +228,17 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
           {/* Product Grid Area */}
           <main className="lg:col-span-9 space-y-6">
             
-            {filteredProducts.length === 0 ? (
+            {products.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-gray-200 space-y-4">
+                <div className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl mx-auto flex items-center justify-center font-bold text-xl">
+                  📦
+                </div>
+                <p className="text-base font-bold text-gray-800">Le catalogue est actuellement vide</p>
+                <p className="text-xs text-gray-500 max-w-md mx-auto">
+                  Tous les articles ont été remis à zéro par l'administrateur. De nouveaux produits et arrivages seront ajoutés très prochainement.
+                </p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="bg-white rounded-3xl p-12 text-center border border-gray-200 space-y-4">
                 <p className="text-base font-bold text-gray-800">Aucun produit ne correspond à ces critères</p>
                 <p className="text-xs text-gray-500">Essayez d'ajuster votre budget ou de changer de catégorie.</p>

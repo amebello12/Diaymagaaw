@@ -47,6 +47,10 @@ export const FlashSaleSection: React.FC<FlashSaleSectionProps> = ({
 
   const flashProducts = products.filter(p => p.isFlashSale).slice(0, 3);
 
+  if (flashProducts.length === 0) {
+    return null;
+  }
+
   return (
     <section className="py-14 bg-gradient-to-br from-gray-950 via-red-950/90 to-gray-950 text-white relative overflow-hidden">
       
