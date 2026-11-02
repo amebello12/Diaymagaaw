@@ -1,7 +1,7 @@
 import React from 'react';
 import { ShieldCheck, Truck, Clock, ArrowRight, Flame, Sparkles } from 'lucide-react';
-import { WaveLogo, OrangeMoneyLogo, FreeMoneyLogo, CashOnDeliveryLogo } from './PaymentLogos';
 import { Product } from '../types';
+import { formatFCFA } from '../utils/currency';
 
 interface HeroBannerProps {
   onShopNow: () => void;
@@ -9,6 +9,7 @@ interface HeroBannerProps {
   onOpenPromos?: () => void;
   onOpenExportShopify?: () => void;
   featuredProduct?: Product;
+  products?: Product[];
   onSelectProduct?: (product: Product) => void;
 }
 
@@ -18,12 +19,22 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   onOpenPromos,
   onOpenExportShopify,
   featuredProduct,
+  products = [],
   onSelectProduct
 }) => {
   const handlePromos = onOpenPromos || onViewPromotions || onShopNow;
+
+  // Sélectionne le produit en promotion vedette (soit celui passé en prop, soit le premier en promo du catalogue)
+  const promoProduct = featuredProduct || products.find(p => (p.discountPercent && p.discountPercent > 0) || p.isFlashSale) || products[0];
+  const displayImage = promoProduct?.images?.[0] || 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?q=80&w=800&auto=format&fit=crop';
+  const displayTitle = promoProduct ? promoProduct.name : 'Produit en Promotion au Sénégal';
+  const displayPrice = promoProduct ? formatFCFA(promoProduct.price) : null;
+  const displayOriginalPrice = promoProduct?.originalPrice ? formatFCFA(promoProduct.originalPrice) : null;
+  const discountText = promoProduct?.discountPercent ? `-${promoProduct.discountPercent}%` : null;
+
   const handleShowcaseClick = () => {
-    if (featuredProduct && onSelectProduct) {
-      onSelectProduct(featuredProduct);
+    if (promoProduct && onSelectProduct) {
+      onSelectProduct(promoProduct);
     } else {
       onShopNow();
     }
@@ -55,17 +66,8 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
 
             <p className="text-gray-300 text-base sm:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed font-normal">
               Découvrez nos produits tendance et profitez de nos meilleures offres au Sénégal. 
-              Livraison rapide à Dakar, banlieue et dans toutes les régions. 
-              Payez en toute tranquillité avec <strong className="text-white font-semibold">Wave</strong>, <strong className="text-white font-semibold">Orange Money</strong>, <strong className="text-white font-semibold">Free Money</strong> ou <strong className="text-white font-semibold">à la livraison</strong>.
+              Livraison rapide à Dakar, banlieue et dans toutes les régions.
             </p>
-
-            {/* Official Mobile Money Badges */}
-            <div className="flex items-center justify-center lg:justify-start gap-2 flex-wrap pt-1">
-              <WaveLogo size="sm" />
-              <OrangeMoneyLogo size="sm" />
-              <FreeMoneyLogo size="sm" />
-              <CashOnDeliveryLogo size="sm" />
-            </div>
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
@@ -133,8 +135,8 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               >
                 <div className="relative rounded-2xl overflow-hidden aspect-4/3 sm:aspect-square">
                   <img
-                    src="https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=800&auto=format&fit=crop"
-                    alt="Smartphone et Électronique DIAYMA GAAW"
+                    src={displayImage}
+                    alt={displayTitle}
                     className="w-full h-full object-cover transform group-hover:scale-105 transition duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-transparent to-transparent"></div>
@@ -143,6 +145,11 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                   <div className="absolute top-4 left-4 bg-red-600 text-white text-xs font-black px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-1.5">
                     <Flame className="w-3.5 h-3.5 fill-white" />
                     <span>PROMO SÉNÉGAL</span>
+                    {discountText && (
+                      <span className="bg-white/25 px-1.5 py-0.5 rounded text-[10px] ml-0.5 font-black">
+                        {discountText}
+                      </span>
+                    )}
                   </div>
 
                   {/* Stock Counter Tag */}
@@ -151,21 +158,34 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                   </div>
 
                   {/* Bottom showcase details */}
-                  <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-md p-4 rounded-2xl text-gray-900 shadow-xl flex items-center justify-between">
-                    <div>
+                  <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-md p-4 rounded-2xl text-gray-900 shadow-xl flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-bold uppercase">
-                        <Sparkles className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                        <span>Offre Spéciale Semaine</span>
+                        <Sparkles className="w-3 h-3 text-yellow-500 fill-yellow-500 shrink-0" />
+                        <span>Offre Spéciale en Promo</span>
                       </div>
-                      <h4 className="font-extrabold text-sm text-gray-900 group-hover:text-red-600 transition">Électronique & Électroménager</h4>
-                      <p className="text-xs text-gray-600">Jusqu'à -35% de réduction</p>
+                      <h4 className="font-extrabold text-sm text-gray-900 group-hover:text-red-600 transition truncate">
+                        {displayTitle}
+                      </h4>
+                      <div className="flex items-baseline gap-2 mt-0.5">
+                        {displayPrice && (
+                          <span className="text-sm sm:text-base font-black text-red-600">
+                            {displayPrice}
+                          </span>
+                        )}
+                        {displayOriginalPrice && (
+                          <span className="text-xs text-gray-400 line-through">
+                            {displayOriginalPrice}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleShowcaseClick();
                       }}
-                      className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl shadow-md transition cursor-pointer"
+                      className="px-3.5 py-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition cursor-pointer shrink-0"
                     >
                       Détails
                     </button>

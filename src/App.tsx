@@ -914,13 +914,15 @@ export default function App() {
               onShopNow={() => handleNavigate('shop', null)}
               onOpenPromos={() => handleNavigate('shop', 'promotions')}
               onOpenExportShopify={() => setShopifyExportOpen(true)}
-              featuredProduct={products[0]}
+              featuredProduct={products.find(p => (p.discountPercent && p.discountPercent > 0) || p.isFlashSale) || products[0]}
+              products={products}
               onSelectProduct={setSelectedProduct}
             />
 
             {/* Visual Category Grid */}
             <CategoryGrid
               categories={categoriesWithCounts}
+              products={products}
               onSelectCategory={(slug) => handleNavigate('shop', slug)}
             />
 

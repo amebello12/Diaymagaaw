@@ -33,7 +33,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     name: 'Téléphones & Accessoires',
     slug: 'telephones-accessoires',
     icon: 'Smartphone',
-    image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=800&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?q=80&w=800&auto=format&fit=crop',
     itemCount: 24,
     description: 'Smartphones récents, écouteurs, coques et chargeurs rapides'
   },
@@ -60,7 +60,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     name: 'Électroménager',
     slug: 'electromenager',
     icon: 'Refrigerator',
-    image: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?q=80&w=800&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1570222094114-d054a817e56b?q=80&w=800&auto=format&fit=crop',
     itemCount: 32,
     description: 'Réfrigérateurs, micro-ondes, mixeurs haute puissance et climatiseurs'
   },
@@ -69,7 +69,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     name: 'Santé & Bien-être',
     slug: 'sante-bien-etre',
     icon: 'HeartPulse',
-    image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?q=80&w=800&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=800&auto=format&fit=crop',
     itemCount: 28,
     description: 'Pistolets de massage, tensiomètres, soins de la peau et diffuseurs'
   },
@@ -78,7 +78,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     name: 'Accessoires',
     slug: 'accessoires',
     icon: 'Headphones',
-    image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=800&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1609592424376-7975d9e50e93?q=80&w=800&auto=format&fit=crop',
     itemCount: 40,
     description: 'Montres connectées, Powerbanks haute capacité et câbles renforcés'
   },
@@ -87,7 +87,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     name: 'Promotions Flash',
     slug: 'promotions',
     icon: 'Flame',
-    image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=800&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1570222094114-d054a817e56b?q=80&w=800&auto=format&fit=crop',
     itemCount: 16,
     description: 'Réductions exclusives jusqu’à -50% pour un temps limité'
   }
