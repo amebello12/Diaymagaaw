@@ -69,7 +69,6 @@ import { ContactPage, AboutPage, FAQPage } from './components/InfoPages';
 import { CustomerAccountModal } from './components/CustomerAccountModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { ShopifyExportModal } from './components/ShopifyExportModal';
-import { WhatsAppCatalogModal } from './components/WhatsAppCatalogModal';
 import { FloatingWhatsApp } from './components/FloatingWhatsApp';
 import { WelcomePopup } from './components/WelcomePopup';
 import { Footer } from './components/Footer';
@@ -335,7 +334,6 @@ export default function App() {
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [shopifyExportOpen, setShopifyExportOpen] = useState(false);
-  const [whatsAppCatalogOpen, setWhatsAppCatalogOpen] = useState(false);
 
   // Détection URL et raccourci clavier secret pour l'accès administrateur sur le site publié
   useEffect(() => {
@@ -903,7 +901,6 @@ export default function App() {
         onSelectProduct={setSelectedProduct}
         activeView={activeView}
         settings={storeSettings}
-        onOpenWhatsAppCatalog={() => setWhatsAppCatalogOpen(true)}
       />
 
       {/* 2. Main Dynamic Content Switcher */}
@@ -986,7 +983,6 @@ export default function App() {
             onAddToCart={handleAddToCart}
             onBuyNow={handleBuyNow}
             settings={storeSettings}
-            onOpenWhatsAppCatalog={() => setWhatsAppCatalogOpen(true)}
           />
         )}
 
@@ -1193,15 +1189,6 @@ export default function App() {
       <ShopifyExportModal
         isOpen={shopifyExportOpen}
         onClose={() => setShopifyExportOpen(false)}
-      />
-
-      {/* WhatsApp Business Catalog Integration & Meta Sync Modal */}
-      <WhatsAppCatalogModal
-        isOpen={whatsAppCatalogOpen}
-        onClose={() => setWhatsAppCatalogOpen(false)}
-        products={products}
-        settings={storeSettings}
-        onUpdateSettings={handleUpdateStoreSettings}
       />
 
     </div>
