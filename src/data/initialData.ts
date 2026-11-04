@@ -668,6 +668,7 @@ export const INITIAL_STORE_SETTINGS: StoreSettings = {
   slogan: 'Les bons produits au bon prix - N°1 E-commerce au Sénégal',
   phone: '707717281',
   whatsappPhone: '707717281',
+  whatsappCatalogUrl: 'https://wa.me/c/221707717281',
   email: 'contact@diaymagaaw.sn',
   address: 'Sacré-Cœur 3, VDN, Dakar, Sénégal',
   currency: 'FCFA',
@@ -678,6 +679,7 @@ export const INITIAL_STORE_SETTINGS: StoreSettings = {
   enableCashOnDelivery: true,
   orderNoticeEmail: 'commandes@diaymagaaw.sn',
   deliveryNotificationWhatsApp: true,
-  showAdminLockInFooter: false
+  showAdminLockInFooter: false,
+  enableWhatsAppCatalogButton: true
 };
 

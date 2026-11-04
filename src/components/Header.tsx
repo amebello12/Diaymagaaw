@@ -14,7 +14,8 @@ import {
   Sparkles,
   Star,
   ChevronDown,
-  Layers
+  Layers,
+  MessageCircle
 } from 'lucide-react';
 import { Product, Category, ActiveView, StoreSettings } from '../types';
 import { formatFCFA, STORE_PHONE_DISPLAY, formatPhoneNumber, cleanPhoneForWhatsApp } from '../utils/currency';
@@ -42,6 +43,7 @@ interface HeaderProps {
   onSelectProduct?: (product: Product) => void;
   onSearchSubmit?: (query: string) => void;
   settings?: StoreSettings;
+  onOpenWhatsAppCatalog?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -64,7 +66,8 @@ export const Header: React.FC<HeaderProps> = ({
   categories = [],
   onSelectProduct,
   onSearchSubmit,
-  settings
+  settings,
+  onOpenWhatsAppCatalog
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -508,6 +511,17 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {onOpenWhatsAppCatalog && (
+              <button
+                type="button"
+                onClick={onOpenWhatsAppCatalog}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300 transition cursor-pointer shadow-2xs"
+                title="Relier ou ouvrir le catalogue WhatsApp Business"
+              >
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
+                <span>Flux WhatsApp & Facebook</span>
+              </button>
+            )}
             <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
               <Sparkles className="w-3.5 h-3.5 text-yellow-600" />
               <span>Dakar 24h Express</span>
@@ -587,6 +601,19 @@ export const Header: React.FC<HeaderProps> = ({
               <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
               <span>⭐ Avis Clients & Notes Étoiles</span>
             </button>
+
+            {onOpenWhatsAppCatalog && (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenWhatsAppCatalog();
+                }}
+                className="text-left px-3.5 py-2.5 rounded-xl text-sm font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 flex items-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4 text-emerald-600 fill-emerald-600" />
+                <span>📱 Flux WhatsApp & Facebook Market</span>
+              </button>
+            )}
 
             <button
               onClick={() => handleNavClick('contact', null)}

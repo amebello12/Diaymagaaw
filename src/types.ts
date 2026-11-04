@@ -133,6 +133,9 @@ export interface StoreSettings {
   orderNoticeEmail?: string;
   deliveryNotificationWhatsApp: boolean;
   showAdminLockInFooter?: boolean;
+  whatsappCatalogUrl?: string;
+  enableWhatsAppCatalogButton?: boolean;
+  whatsappOrderTemplate?: string;
 }
 
 export interface VisitorDayStats {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ShoppingCart, Zap, Star, MessageCircle } from 'lucide-react';
-import { Product } from '../types';
+import { Product, StoreSettings } from '../types';
 import { formatFCFA, createWhatsAppProductMessage } from '../utils/currency';
 import { ActiveFlame } from './ActiveFlame';
 
@@ -9,6 +9,7 @@ interface ProductCardProps {
   onSelectProduct: (product: Product) => void;
   onAddToCart: (product: Product, e: React.MouseEvent) => void;
   onBuyNow: (product: Product, e: React.MouseEvent) => void;
+  settings?: StoreSettings;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -16,6 +17,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onSelectProduct,
   onAddToCart,
   onBuyNow,
+  settings
 }) => {
   return (
     <div 
@@ -59,16 +61,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           loading="lazy"
         />
         
-        {/* Quick WhatsApp Floating Pill on Hover */}
+        {/* Bouton direct Commander via WhatsApp Business */}
         <a
-          href={createWhatsAppProductMessage(product.name, product.price, product.sku)}
+          href={createWhatsAppProductMessage(product.name, product.price, product.sku, settings?.whatsappPhone || settings?.phone)}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="absolute bottom-2 right-2 bg-green-500 hover:bg-green-600 text-white p-2 rounded-full shadow-lg transition opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transform sm:group-hover:translate-y-0 sm:translate-y-2"
-          title="Commander directement sur WhatsApp"
+          className="absolute bottom-2 right-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-2.5 py-1.5 rounded-xl shadow-lg transition flex items-center gap-1.5 text-[11px] font-black z-10"
+          title="Commander directement cet article sur WhatsApp"
         >
-          <MessageCircle className="w-4 h-4 fill-white" />
+          <MessageCircle className="w-3.5 h-3.5 fill-white" />
+          <span>WhatsApp</span>
         </a>
       </div>
 

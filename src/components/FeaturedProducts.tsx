@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Product } from '../types';
+import { Product, StoreSettings } from '../types';
 import { ProductCard } from './ProductCard';
 import { Flame, Sparkles } from 'lucide-react';
 import { ActiveFlame } from './ActiveFlame';
@@ -12,6 +12,7 @@ interface FeaturedProductsProps {
   onBuyNow: (product: Product, e: React.MouseEvent) => void;
   onViewAll?: () => void;
   onViewCatalog?: () => void;
+  settings?: StoreSettings;
 }
 
 export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
@@ -20,7 +21,8 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
   onAddToCart,
   onBuyNow,
   onViewAll,
-  onViewCatalog
+  onViewCatalog,
+  settings
 }) => {
   const handleViewAll = onViewCatalog || onViewAll || (() => {});
   const [filter, setFilter] = useState<'all' | 'promos' | 'electronics' | 'sound_video' | 'solaire' | 'appliances'>('all');
@@ -145,6 +147,7 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
                   onSelectProduct={onSelectProduct}
                   onAddToCart={onAddToCart}
                   onBuyNow={onBuyNow}
+                  settings={settings}
                 />
               ))}
             </div>

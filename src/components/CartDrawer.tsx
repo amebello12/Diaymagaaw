@@ -9,10 +9,12 @@ import {
   Tag, 
   Check, 
   Truck,
-  ShieldCheck
+  ShieldCheck,
+  MessageCircle
 } from 'lucide-react';
 import { CartItem, StoreSettings, PromoCode } from '../types';
 import { formatFCFA } from '../utils/currency';
+import { createCartWhatsAppOrderLink } from '../utils/whatsappCatalogGenerator';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -275,6 +277,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <span>PASSER LA COMMANDE</span>
               <ArrowRight className="w-4 h-4" />
             </button>
+
+            {/* WhatsApp Business Direct Order */}
+            <a
+              href={createCartWhatsAppOrderLink(items, 0, subtotal - discountAmount, settings)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 active:scale-98 font-bold text-xs rounded-2xl transition flex items-center justify-center gap-2 cursor-pointer shadow-xs text-center"
+            >
+              <MessageCircle className="w-4 h-4 text-emerald-600 fill-emerald-600" />
+              <span>Transmettre ce panier sur WhatsApp Business</span>
+            </a>
 
             {/* Mobile Money Assurance */}
             <div className="flex items-center justify-center gap-2 text-[11px] text-gray-500 font-medium">

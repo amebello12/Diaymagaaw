@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Product, Category } from '../types';
+import { Product, Category, StoreSettings } from '../types';
 import { ProductCard } from './ProductCard';
-import { Filter, SlidersHorizontal, ArrowUpDown, Flame, Check, X } from 'lucide-react';
-import { formatFCFA } from '../utils/currency';
+import { Filter, SlidersHorizontal, ArrowUpDown, Flame, Check, X, MessageCircle, Download } from 'lucide-react';
+import { formatFCFA, cleanPhoneForWhatsApp } from '../utils/currency';
 import { ActiveFlame } from './ActiveFlame';
 
 interface ShopCatalogProps {
@@ -13,6 +13,8 @@ interface ShopCatalogProps {
   onSelectProduct: (product: Product) => void;
   onAddToCart: (product: Product, e: React.MouseEvent) => void;
   onBuyNow: (product: Product, e: React.MouseEvent) => void;
+  settings?: StoreSettings;
+  onOpenWhatsAppCatalog?: () => void;
 }
 
 export const ShopCatalog: React.FC<ShopCatalogProps> = ({
@@ -22,7 +24,9 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
   onSelectCategorySlug,
   onSelectProduct,
   onAddToCart,
-  onBuyNow
+  onBuyNow,
+  settings,
+  onOpenWhatsAppCatalog
 }) => {
   const [searchFilter, setSearchFilter] = useState('');
   const [maxPrice, setMaxPrice] = useState<number>(700000);
@@ -94,11 +98,22 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
             </p>
           </div>
 
-          {/* Sort & Mobile filter trigger */}
-          <div className="flex items-center gap-3">
+          {/* Actions & Sort */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            {onOpenWhatsAppCatalog && (
+              <button
+                onClick={onOpenWhatsAppCatalog}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm shadow-emerald-700/20 active:scale-95 cursor-pointer"
+                title="Lien de synchronisation du catalogue avec WhatsApp Business et Facebook Marketplace"
+              >
+                <MessageCircle className="w-4 h-4 fill-white" />
+                <span>Lien WhatsApp & Facebook Market</span>
+              </button>
+            )}
+
             <button
               onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
-              className="lg:hidden px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl flex items-center gap-2"
+              className="lg:hidden px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
             >
               <Filter className="w-4 h-4" />
               <span>Filtres</span>
@@ -262,6 +277,7 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
                     onSelectProduct={onSelectProduct}
                     onAddToCart={onAddToCart}
                     onBuyNow={onBuyNow}
+                    settings={settings}
                   />
                 ))}
               </div>
