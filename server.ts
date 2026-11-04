@@ -58,11 +58,59 @@ async function startServer() {
   const app = express();
   app.use(express.json());
 
-  // 1. Meta Commerce Manager / Facebook Marketplace / WhatsApp Business live CSV feed
+// 1. Meta Product Image endpoint (serves real binary JPG/PNG image so CSV/XML does not bloat with base64 data URIs)
+  app.get(
+    [
+      '/api/catalog/image/:productId',
+      '/api/catalog/image/:productId.jpg',
+      '/api/catalog/image/:productId.png',
+      '/catalog/image/:productId.jpg'
+    ],
+    async (req: Request, res: Response) => {
+      try {
+        const { productId } = req.params;
+        const cleanId = (productId || '').replace(/\.(jpg|png|jpeg|webp)$/i, '');
+        const { products } = await getLiveProducts();
+        const product = products.find((p) => p.id === cleanId || p.sku === cleanId || p.slug === cleanId);
+
+        const rawImage = product?.images && product.images[0] ? product.images[0] : '';
+        if (rawImage.startsWith('data:image')) {
+          const match = rawImage.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+          if (match) {
+            const format = match[1] === 'jpg' ? 'jpeg' : match[1];
+            const buffer = Buffer.from(match[2], 'base64');
+            res.setHeader('Content-Type', `image/${format}`);
+            res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            return res.status(200).send(buffer);
+          }
+        } else if (rawImage.startsWith('http://') || rawImage.startsWith('https://')) {
+          return res.redirect(rawImage);
+        }
+
+        // Fallback to store logo or placeholder
+        const logoPath = path.resolve(__dirname, 'public', 'logo.jpg');
+        if (fs.existsSync(logoPath)) {
+          res.setHeader('Content-Type', 'image/jpeg');
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.sendFile(logoPath);
+        }
+        return res.status(404).send('Image not found');
+      } catch (err) {
+        console.error('Error serving product image:', err);
+        return res.status(500).send('Error serving image');
+      }
+    }
+  );
+
+  // 2. Meta Commerce Manager / Facebook Marketplace / WhatsApp Business live CSV feed
   app.get(
     [
       '/api/catalog/feed.csv',
       '/catalog.csv',
+      '/feed.csv',
+      '/catalog-feed.csv',
       '/api/catalog/meta-feed.csv',
       '/api/catalog/facebook-feed.csv',
       '/api/catalog/whatsapp-feed.csv',
@@ -71,7 +119,7 @@ async function startServer() {
       try {
         const { products, settings } = await getLiveProducts();
         const baseUrl = getBaseUrl(req);
-        const csv = generateMetaCatalogCsv(products, settings);
+        const csv = generateMetaCatalogCsv(products, settings, baseUrl);
         
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', 'inline; filename="catalog-facebook-whatsapp-feed.csv"');
@@ -86,11 +134,13 @@ async function startServer() {
     }
   );
 
-  // 2. Meta Commerce / Google Merchant RSS 2.0 XML data feed
+  // 3. Meta Commerce / Google Merchant RSS 2.0 XML data feed
   app.get(
     [
       '/api/catalog/feed.xml',
       '/catalog.xml',
+      '/feed.xml',
+      '/catalog-feed.xml',
       '/api/catalog/meta-feed.xml',
       '/api/catalog/facebook-feed.xml',
     ],
@@ -101,6 +151,7 @@ async function startServer() {
         const xml = generateMetaCatalogXml(products, settings, baseUrl);
 
         res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+        res.setHeader('Content-Disposition', 'inline; filename="catalog-facebook-whatsapp-feed.xml"');
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
         res.setHeader('Cache-Control', 'public, max-age=60');
@@ -112,7 +163,7 @@ async function startServer() {
     }
   );
 
-  // 3. Catalog Feed status and direct link metadata
+  // 4. Catalog Feed status and direct link metadata
   app.get('/api/catalog/summary', async (req: Request, res: Response) => {
     try {
       const { products } = await getLiveProducts();
@@ -127,6 +178,7 @@ async function startServer() {
         inStockCount: inStock,
         feedUrls: {
           csv: `${baseUrl}/api/catalog/feed.csv`,
+          rootCsv: `${baseUrl}/catalog.csv`,
           xml: `${baseUrl}/api/catalog/feed.xml`,
           metaCommerce: `${baseUrl}/catalog.csv`,
           catalogPage: `${baseUrl}/#catalogue`,
@@ -166,6 +218,50 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   }
+
+  // Pre-generate physical static files so that static CDNs or direct file requests never 404
+  async function syncStaticFeeds() {
+    try {
+      const { products, settings } = await getLiveProducts();
+      const defaultBaseUrl = 'https://diaymagaaw.sn';
+      const csvContent = '\uFEFF' + generateMetaCatalogCsv(products, settings, defaultBaseUrl);
+      const xmlContent = generateMetaCatalogXml(products, settings, defaultBaseUrl);
+
+      const publicDir = path.resolve(__dirname, 'public');
+      const apiCatalogDir = path.resolve(publicDir, 'api', 'catalog');
+      if (!fs.existsSync(apiCatalogDir)) {
+        fs.mkdirSync(apiCatalogDir, { recursive: true });
+      }
+
+      fs.writeFileSync(path.resolve(publicDir, 'catalog.csv'), csvContent, 'utf-8');
+      fs.writeFileSync(path.resolve(publicDir, 'feed.csv'), csvContent, 'utf-8');
+      fs.writeFileSync(path.resolve(apiCatalogDir, 'feed.csv'), csvContent, 'utf-8');
+
+      fs.writeFileSync(path.resolve(publicDir, 'catalog.xml'), xmlContent, 'utf-8');
+      fs.writeFileSync(path.resolve(publicDir, 'feed.xml'), xmlContent, 'utf-8');
+      fs.writeFileSync(path.resolve(apiCatalogDir, 'feed.xml'), xmlContent, 'utf-8');
+
+      const distDir = path.resolve(__dirname, 'dist');
+      if (fs.existsSync(distDir)) {
+        const distApiDir = path.resolve(distDir, 'api', 'catalog');
+        if (!fs.existsSync(distApiDir)) {
+          fs.mkdirSync(distApiDir, { recursive: true });
+        }
+        fs.writeFileSync(path.resolve(distDir, 'catalog.csv'), csvContent, 'utf-8');
+        fs.writeFileSync(path.resolve(distDir, 'feed.csv'), csvContent, 'utf-8');
+        fs.writeFileSync(path.resolve(distApiDir, 'feed.csv'), csvContent, 'utf-8');
+        fs.writeFileSync(path.resolve(distDir, 'catalog.xml'), xmlContent, 'utf-8');
+        fs.writeFileSync(path.resolve(distDir, 'feed.xml'), xmlContent, 'utf-8');
+        fs.writeFileSync(path.resolve(distApiDir, 'feed.xml'), xmlContent, 'utf-8');
+      }
+      console.log(`[Static Feeds] Synchronized ${products.length} products to static feed files.`);
+    } catch (err) {
+      console.warn('[Static Feeds] Error writing static files:', err);
+    }
+  }
+
+  // Run in background on startup
+  syncStaticFeeds().catch((e) => console.warn('syncStaticFeeds background error:', e));
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);

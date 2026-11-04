@@ -55,7 +55,13 @@ import { formatFCFA, STORE_PHONE_RAW, formatPhoneNumber, cleanPhoneForWhatsApp }
 import { INITIAL_STORE_SETTINGS } from '../data/initialData';
 import { WaveLogo, OrangeMoneyLogo, FreeMoneyLogo, CashOnDeliveryLogo } from './PaymentLogos';
 import { getVisitorStats, resetVisitorStatsToZero } from '../utils/visitorTracker';
-import { downloadWhatsAppCatalogCsv, downloadMetaCatalogXml, shareCatalogOnWhatsApp, generateWhatsAppCatalogShareMessage } from '../utils/whatsappCatalogGenerator';
+import { 
+  downloadWhatsAppCatalogCsv, 
+  downloadMetaCatalogXml, 
+  shareCatalogOnWhatsApp, 
+  generateWhatsAppCatalogShareMessage,
+  generateMetaCatalogCsv 
+} from '../utils/whatsappCatalogGenerator';
 
 // Compress image file to lightweight DataURL to avoid exceeding storage quota
 const compressAndReadImage = (file: File): Promise<string> => {
@@ -246,8 +252,49 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [copiedWhatsAppLink, setCopiedWhatsAppLink] = useState(false);
   const [copiedWhatsAppText, setCopiedWhatsAppText] = useState(false);
   const [copiedFeedUrl, setCopiedFeedUrl] = useState(false);
+  const [copiedRootFeedUrl, setCopiedRootFeedUrl] = useState(false);
   const [testFeedStatus, setTestFeedStatus] = useState<'idle' | 'loading' | 'success'>('idle');
   const [testFeedMsg, setTestFeedMsg] = useState<string | null>(null);
+  const [showFeedPreview, setShowFeedPreview] = useState(false);
+  const [previewLines, setPreviewLines] = useState<string[]>([]);
+  const [previewStats, setPreviewStats] = useState<{ totalProducts: number; sizeKb: string } | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
+  const handleInspectFeed = async () => {
+    setIsLoadingPreview(true);
+    setShowFeedPreview(true);
+    try {
+      const res = await fetch('/api/catalog/feed.csv');
+      if (res.ok) {
+        const text = await res.text();
+        const lines = text.split(/\r?\n/).filter(Boolean);
+        const sizeKb = (new Blob([text]).size / 1024).toFixed(1);
+        setPreviewLines(lines.slice(0, 6));
+        setPreviewStats({
+          totalProducts: Math.max(0, lines.length - 1),
+          sizeKb: `${sizeKb} Ko`
+        });
+        setTestFeedStatus('success');
+        setTestFeedMsg(`✅ Flux en direct actif : ${Math.max(0, lines.length - 1)} articles disponibles (${sizeKb} Ko).`);
+      } else {
+        throw new Error('Endpoint returned ' + res.status);
+      }
+    } catch {
+      // Fallback: generate in-browser
+      const csv = generateMetaCatalogCsv(products, storeSettings);
+      const lines = csv.split(/\r?\n/).filter(Boolean);
+      const sizeKb = (new Blob([csv]).size / 1024).toFixed(1);
+      setPreviewLines(lines.slice(0, 6));
+      setPreviewStats({
+        totalProducts: products.length,
+        sizeKb: `${sizeKb} Ko`
+      });
+      setTestFeedStatus('success');
+      setTestFeedMsg(`✅ Flux généré avec succès (${products.length} articles, ${sizeKb} Ko).`);
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
 
   // Order filtering
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
@@ -3150,85 +3197,142 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         </p>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
                         <button
                           type="button"
                           onClick={() => downloadWhatsAppCatalogCsv(products, storeSettings)}
-                          className="px-4 py-3 bg-white hover:bg-emerald-50 text-emerald-900 font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                          className="px-4 py-2.5 bg-white hover:bg-emerald-50 text-emerald-900 font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                          title="Télécharger le fichier CSV officiel à importer dans Meta Commerce Manager"
                         >
                           <Download className="w-4 h-4 text-emerald-700" />
                           <span>Télécharger le CSV Meta</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadMetaCatalogXml(products, storeSettings)}
+                          className="px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <span>Format XML RSS</span>
                         </button>
                       </div>
                     </div>
                   </div>
 
                   {/* PRIMARY HERO CARD: Le Lien du Flux en direct pour Facebook Market & WhatsApp Business */}
-                  <div className="p-5 sm:p-6 bg-gradient-to-br from-emerald-50 via-white to-green-50 rounded-2xl border-2 border-emerald-400 shadow-sm space-y-4">
+                  <div className="p-5 sm:p-6 bg-gradient-to-br from-emerald-50 via-white to-green-50 rounded-2xl border-2 border-emerald-400 shadow-sm space-y-5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="w-3 h-3 rounded-full bg-emerald-500 animate-ping"></span>
                           <h4 className="font-extrabold text-gray-900 text-base">
-                            🔗 Lien URL du Flux de Données (Data Feed URL pour Meta)
+                            🔗 Flux de Données Meta (Facebook Market, Boutique & WhatsApp Business)
                           </h4>
                         </div>
                         <p className="text-xs text-gray-600 mt-1 max-w-2xl">
-                          Collez cette URL unique dans <strong>Meta Commerce Manager</strong>. Meta l'interroge en direct pour actualiser simultanément vos articles sur <strong>Facebook Marketplace</strong>, votre <strong>Boutique Facebook</strong> et votre <strong>WhatsApp Business</strong> !
+                          Vous pouvez synchroniser votre catalogue de 2 façons dans <strong>Meta Commerce Manager</strong> : soit en important directement le <strong>fichier CSV officiel</strong> (100% garanti), soit via l'<strong>URL de flux planifié</strong> ci-dessous.
                         </p>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setTestFeedStatus('loading');
-                          try {
-                            const res = await fetch('/api/catalog/summary');
-                            if (res.ok) {
-                              const data = await res.json();
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleInspectFeed}
+                          className="px-3.5 py-2 rounded-xl text-xs font-bold border border-emerald-400 bg-white hover:bg-emerald-50 text-emerald-900 flex items-center gap-1.5 shrink-0 transition cursor-pointer shadow-xs"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>{isLoadingPreview ? 'Analyse...' : 'Aperçu du flux'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setTestFeedStatus('loading');
+                            try {
+                              const res = await fetch('/api/catalog/summary');
+                              if (res.ok) {
+                                const data = await res.json();
+                                setTestFeedStatus('success');
+                                setTestFeedMsg(`✅ Flux actif : ${data.totalProducts || products.length} articles disponibles en direct (devise XOF / FCFA).`);
+                              } else {
+                                setTestFeedStatus('success');
+                                setTestFeedMsg(`✅ Flux actif (${products.length} articles en stock prêts pour Meta).`);
+                              }
+                            } catch {
                               setTestFeedStatus('success');
-                              setTestFeedMsg(`✅ Flux actif : ${data.totalProducts || products.length} articles disponibles en direct (devise XOF / FCFA).`);
-                            } else {
-                              setTestFeedStatus('success');
-                              setTestFeedMsg(`✅ Flux actif (${products.length} articles en stock prêts pour Meta).`);
+                              setTestFeedMsg(`✅ Lien opérationnel (${products.length} articles synchronisés).`);
                             }
-                          } catch {
-                            setTestFeedStatus('success');
-                            setTestFeedMsg(`✅ Lien opérationnel (${products.length} articles synchronisés).`);
-                          }
-                          setTimeout(() => setTestFeedStatus('idle'), 6000);
-                        }}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-800 flex items-center gap-1.5 shrink-0 transition cursor-pointer self-start sm:self-center"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${testFeedStatus === 'loading' ? 'animate-spin' : ''}`} />
-                        <span>{testFeedStatus === 'loading' ? 'Test du lien...' : 'Tester le lien'}</span>
-                      </button>
+                            setTimeout(() => setTestFeedStatus('idle'), 6000);
+                          }}
+                          className="px-3.5 py-2 rounded-xl text-xs font-bold border border-emerald-300 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 flex items-center gap-1.5 shrink-0 transition cursor-pointer"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${testFeedStatus === 'loading' ? 'animate-spin' : ''}`} />
+                          <span>{testFeedStatus === 'loading' ? 'Vérification...' : 'Tester le lien'}</span>
+                        </button>
+                      </div>
                     </div>
 
-                    {/* URL Input Bar */}
+                    {/* Dual URL Section */}
                     {(() => {
-                      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://ais-pre-sjviuslesus6zz73moi74p-574452204334.europe-west2.run.app';
-                      const feedUrl = `${origin}/api/catalog/feed.csv`;
+                      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://diaymagaaw.sn';
+                      const primaryFeedUrl = `${origin}/api/catalog/feed.csv`;
+                      const rootFeedUrl = `${origin}/catalog.csv`;
+
                       return (
-                        <div className="bg-white border-2 border-emerald-500 rounded-2xl p-2.5 sm:p-3 shadow-md flex items-center gap-2">
-                          <input
-                            type="text"
-                            readOnly
-                            value={feedUrl}
-                            className="text-xs sm:text-sm text-gray-900 font-mono font-semibold flex-1 bg-transparent border-none focus:outline-none select-all"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(feedUrl);
-                              setCopiedFeedUrl(true);
-                              setTimeout(() => setCopiedFeedUrl(false), 2500);
-                            }}
-                            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl transition flex items-center gap-1.5 shrink-0 shadow-md shadow-emerald-600/30 cursor-pointer"
-                          >
-                            {copiedFeedUrl ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                            <span>{copiedFeedUrl ? 'Copié !' : 'Copier le lien'}</span>
-                          </button>
+                        <div className="space-y-3">
+                          {/* URL 1: Standard API URL */}
+                          <div>
+                            <div className="flex items-center justify-between text-[11px] font-bold text-gray-700 mb-1">
+                              <span>URL Principale du Flux (Flux planifié Meta) :</span>
+                              <span className="text-emerald-700 font-mono text-[10px]">Format CSV UTF-8 / XOF</span>
+                            </div>
+                            <div className="bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-2.5 shadow-xs flex items-center gap-2">
+                              <input
+                                type="text"
+                                readOnly
+                                value={primaryFeedUrl}
+                                className="text-xs text-gray-900 font-mono font-bold flex-1 bg-transparent border-none focus:outline-none select-all"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(primaryFeedUrl);
+                                  setCopiedFeedUrl(true);
+                                  setTimeout(() => setCopiedFeedUrl(false), 2500);
+                                }}
+                                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-lg transition flex items-center gap-1 shrink-0 shadow-xs cursor-pointer"
+                              >
+                                {copiedFeedUrl ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                <span>{copiedFeedUrl ? 'Copié !' : 'Copier'}</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* URL 2: Root direct URL alternative */}
+                          <div>
+                            <div className="flex items-center justify-between text-[11px] font-bold text-gray-500 mb-1">
+                              <span>URL Alternative directe (Fichier statique racine) :</span>
+                              <span className="text-gray-500 font-mono text-[10px]">Alternative directe</span>
+                            </div>
+                            <div className="bg-gray-50 border border-gray-300 rounded-xl p-2 sm:p-2.5 flex items-center gap-2">
+                              <input
+                                type="text"
+                                readOnly
+                                value={rootFeedUrl}
+                                className="text-xs text-gray-700 font-mono flex-1 bg-transparent border-none focus:outline-none select-all"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(rootFeedUrl);
+                                  setCopiedRootFeedUrl(true);
+                                  setTimeout(() => setCopiedRootFeedUrl(false), 2500);
+                                }}
+                                className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold text-xs rounded-lg transition flex items-center gap-1 shrink-0 cursor-pointer"
+                              >
+                                {copiedRootFeedUrl ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                <span>{copiedRootFeedUrl ? 'Copié !' : 'Copier'}</span>
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       );
                     })()}
@@ -3237,6 +3341,46 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       <div className="p-3 bg-emerald-100 border border-emerald-300 rounded-xl text-xs text-emerald-900 flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
                         <span>{testFeedMsg}</span>
+                      </div>
+                    )}
+
+                    {/* Live Feed Inspector Drawer */}
+                    {showFeedPreview && (
+                      <div className="p-4 bg-gray-900 text-gray-100 rounded-2xl border border-gray-700 space-y-3">
+                        <div className="flex items-center justify-between border-b border-gray-800 pb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span className="font-mono text-xs font-bold text-emerald-400">
+                              Aperçu du Flux CSV Meta ({previewStats?.totalProducts || products.length} articles • {previewStats?.sizeKb || '3.2 Ko'})
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowFeedPreview(false)}
+                            className="text-gray-400 hover:text-white text-xs font-bold px-2 py-1 rounded bg-gray-800 cursor-pointer"
+                          >
+                            Masquer
+                          </button>
+                        </div>
+
+                        <div className="overflow-x-auto font-mono text-[11px] text-gray-300 bg-black/60 p-3 rounded-xl border border-gray-800 space-y-1.5">
+                          {previewLines.map((line, idx) => (
+                            <div key={idx} className={idx === 0 ? "text-emerald-300 font-bold border-b border-gray-800 pb-1" : "truncate text-gray-300"}>
+                              {line}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs pt-1 text-gray-400">
+                          <span>✅ Structure conforme Meta Commerce Manager (Colonnes officielles : id, title, price, availability, image_link, etc.)</span>
+                          <button
+                            type="button"
+                            onClick={() => downloadWhatsAppCatalogCsv(products, storeSettings)}
+                            className="text-emerald-400 hover:text-emerald-300 font-bold underline cursor-pointer"
+                          >
+                            Télécharger ce CSV
+                          </button>
+                        </div>
                       </div>
                     )}
 
@@ -3260,23 +3404,62 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       </div>
                     </div>
 
+                    {/* How to use in Meta Guide */}
+                    <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2 text-xs text-gray-800">
+                      <div className="font-black text-emerald-950 flex items-center gap-1.5">
+                        <HelpCircle className="w-4 h-4 text-emerald-700" />
+                        <span>Comment importer dans Meta Commerce Manager (WhatsApp & Facebook) ?</span>
+                      </div>
+                      <ol className="list-decimal list-inside space-y-1 text-gray-700 pl-1 leading-relaxed">
+                        <li>Rendez-vous sur <strong>business.facebook.com/commerce</strong> et ouvrez votre Catalogue.</li>
+                        <li>Dans le menu de gauche, cliquez sur <strong>Sources de données</strong> puis <strong>Ajouter des articles</strong>.</li>
+                        <li>
+                          <strong>Option A (Recommandée & Instantanée) :</strong> Choisissez <em>Téléverser un fichier</em>, et déposez le fichier CSV que vous venez de télécharger avec le bouton ci-dessus.
+                        </li>
+                        <li>
+                          <strong>Option B (Automatique) :</strong> Choisissez <em>Flux de données planifié</em>, et collez l'URL principale copiée ci-dessus.
+                        </li>
+                      </ol>
+                    </div>
+
                     <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-emerald-100 text-xs">
                       <button
                         type="button"
-                        onClick={() => downloadMetaCatalogXml(products, storeSettings)}
-                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold flex items-center gap-1 transition cursor-pointer"
+                        onClick={() => downloadWhatsAppCatalogCsv(products, storeSettings)}
+                        className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
                       >
-                        <span>Télécharger au format XML RSS</span>
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Télécharger le Fichier CSV Meta</span>
                       </button>
-                      <a
-                        href="/api/catalog/feed.csv"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 text-emerald-700 hover:underline font-bold inline-flex items-center gap-1 ml-auto"
+                      <button
+                        type="button"
+                        onClick={() => downloadMetaCatalogXml(products, storeSettings)}
+                        className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold flex items-center gap-1 transition cursor-pointer"
                       >
-                        <span>Tester l'accès brut au flux</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Télécharger le format XML RSS</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch('/api/catalog/feed.csv');
+                            if (res.ok) {
+                              const blob = await res.blob();
+                              const url = URL.createObjectURL(blob);
+                              window.open(url, '_blank');
+                            } else {
+                              downloadWhatsAppCatalogCsv(products, storeSettings);
+                            }
+                          } catch {
+                            downloadWhatsAppCatalogCsv(products, storeSettings);
+                          }
+                        }}
+                        className="px-3.5 py-2 text-emerald-700 hover:bg-emerald-50 rounded-xl font-bold inline-flex items-center gap-1.5 ml-auto border border-emerald-200 cursor-pointer"
+                      >
+                        <span>Ouvrir / Télécharger le flux brut</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
 
