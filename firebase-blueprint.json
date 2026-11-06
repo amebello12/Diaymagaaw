@@ -102,7 +102,11 @@
       "properties": {
         "code": { "type": "string", "maxLength": 50 },
         "discountPercent": { "type": "number" },
-        "description": { "type": "string", "maxLength": 300 }
+        "description": { "type": "string", "maxLength": 300 },
+        "isValidated": { "type": "boolean" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 100 },
+        "validatedAt": { "type": "string", "maxLength": 100 }
       },
       "required": ["code", "discountPercent"]
     },

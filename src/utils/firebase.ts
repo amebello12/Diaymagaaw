@@ -1,722 +1,512 @@
-import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore, 
-  doc, 
-  getDocFromServer, 
-  collection, 
-  onSnapshot, 
-  setDoc, 
-  deleteDoc, 
-  getDocs,
-  writeBatch
-} from 'firebase/firestore';
-import { 
-  getAuth, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  signOut, 
-  onAuthStateChanged,
-  User 
-} from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
 import { Product, Category, Order, DeliveryZone, PromoCode, Review, StoreSettings } from '../types';
 
-// 1. Initialize Firebase App & Services
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
+type SyncStatus = 'connected' | 'syncing' | 'offline';
+type StatusListener = (status: SyncStatus, lastSyncTime?: Date) => void;
 
-// 2. Validate Connection to Firestore on boot as mandated
-export async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn("Connexion Firestore en attente du réseau.");
-    }
-  }
-}
-testConnection();
+const statusListeners: StatusListener[] = [];
+let currentSyncStatus: SyncStatus = 'connected';
+let lastSyncTime: Date = new Date();
 
-// 3. Error Handling Architecture
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-export interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    tenantId?: string | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
-  };
-}
-
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  return errInfo;
-}
-
-// 4. Multi-device sync state listeners
-type SyncStatusCallback = (status: 'connected' | 'syncing' | 'offline', lastSyncTime?: Date) => void;
-const syncListeners: Set<SyncStatusCallback> = new Set();
-let currentSyncStatus: 'connected' | 'syncing' | 'offline' = 'connected';
-let lastSyncDate = new Date();
-
-export function subscribeSyncStatus(callback: SyncStatusCallback) {
-  syncListeners.add(callback);
-  callback(currentSyncStatus, lastSyncDate);
+export function subscribeSyncStatus(listener: StatusListener) {
+  statusListeners.push(listener);
+  listener(currentSyncStatus, lastSyncTime);
   return () => {
-    syncListeners.delete(callback);
+    const idx = statusListeners.indexOf(listener);
+    if (idx !== -1) statusListeners.splice(idx, 1);
   };
 }
 
-function updateSyncStatus(status: 'connected' | 'syncing' | 'offline') {
+function updateSyncStatus(status: SyncStatus) {
   currentSyncStatus = status;
-  lastSyncDate = new Date();
-  syncListeners.forEach(cb => cb(currentSyncStatus, lastSyncDate));
+  if (status === 'connected') {
+    lastSyncTime = new Date();
+  }
+  statusListeners.forEach((l) => l(currentSyncStatus, lastSyncTime));
 }
 
-// Helper to strip undefined values so Firestore never rejects mutations
-export function sanitizeForFirestore(obj: any): any {
-  if (obj === undefined) return null;
-  return JSON.parse(JSON.stringify(obj, (key, value) => {
-    return value === undefined ? null : value;
-  }));
-}
-
-// 5. Products Real-time Synchronization (Articles Multi-appareils & Direct Site Publié)
+// =================== PRODUCTS ===================
 export function subscribeToProducts(
   onUpdate: (products: Product[]) => void,
   initialFallback?: Product[]
-) {
-  const path = 'products';
-  const productsCol = collection(db, path);
+): () => void {
+  let active = true;
 
-  const unsubscribe = onSnapshot(
-    productsCol,
-    (snapshot) => {
-      updateSyncStatus('connected');
-      const isCleared = typeof window !== 'undefined' && localStorage.getItem('dg_catalog_cleared') === 'true';
-
-      if (snapshot.empty) {
-        // If Firestore products collection is empty on first setup and NOT intentionally cleared by admin
-        if (!isCleared && initialFallback && initialFallback.length > 0 && !localStorage.getItem('dg_catalog_initialized')) {
-          seedInitialProducts(initialFallback).catch(err => {
-            console.warn('Seeding initial products warning:', err);
-          });
-          try {
-            localStorage.setItem('dg_catalog_initialized', 'true');
-          } catch {
-            // ignore
-          }
-          onUpdate(initialFallback);
-          return;
+  const fetchProducts = async () => {
+    try {
+      updateSyncStatus('syncing');
+      const res = await fetch('/api/products');
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const data: Product[] = await res.json();
+      if (active) {
+        updateSyncStatus('connected');
+        onUpdate(data);
+        try {
+          localStorage.setItem('dg_products', JSON.stringify(data));
+        } catch {
+          // ignore
         }
-        // When cleared or empty, update state with empty array!
-        onUpdate([]);
-        return;
       }
-
-      try {
-        localStorage.setItem('dg_catalog_initialized', 'true');
-      } catch {
-        // ignore
+    } catch (err) {
+      console.warn('API fetchProducts fallback:', err);
+      if (active) {
+        updateSyncStatus('offline');
+        try {
+          const cached = localStorage.getItem('dg_products');
+          if (cached) {
+            onUpdate(JSON.parse(cached));
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        if (initialFallback) onUpdate(initialFallback);
       }
-
-      const prods: Product[] = [];
-      snapshot.forEach(docSnap => {
-        prods.push(docSnap.data() as Product);
-      });
-
-      // Sort: Newly created products (timestamp in ID) appear first at the top of the store!
-      prods.sort((a, b) => {
-        const timeA = a.id.startsWith('prod-1') && a.id.length > 8 ? parseInt(a.id.replace('prod-', ''), 10) : 0;
-        const timeB = b.id.startsWith('prod-1') && b.id.length > 8 ? parseInt(b.id.replace('prod-', ''), 10) : 0;
-        if (timeA && timeB) return timeB - timeA;
-        if (timeA) return -1;
-        if (timeB) return 1;
-        return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
-      });
-
-      onUpdate(prods);
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
-      updateSyncStatus('offline');
     }
-  );
+  };
 
-  return unsubscribe;
+  fetchProducts();
+  const interval = setInterval(fetchProducts, 8000);
+
+  return () => {
+    active = false;
+    clearInterval(interval);
+  };
 }
 
 export async function saveProductToFirestore(product: Product): Promise<void> {
-  const path = `products/${product.id}`;
   updateSyncStatus('syncing');
   try {
-    const cleanProduct = sanitizeForFirestore(product);
-    await setDoc(doc(db, 'products', product.id), cleanProduct);
+    const res = await fetch('/api/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(product),
+    });
+    if (!res.ok) throw new Error('Failed to save product');
     updateSyncStatus('connected');
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
     updateSyncStatus('offline');
     throw error;
   }
 }
 
 export async function deleteProductFromFirestore(productId: string): Promise<void> {
-  const path = `products/${productId}`;
   updateSyncStatus('syncing');
   try {
-    await deleteDoc(doc(db, 'products', productId));
+    const res = await fetch(`/api/products/${productId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to delete product');
     updateSyncStatus('connected');
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
     updateSyncStatus('offline');
     throw error;
   }
 }
 
-/**
- * Supprime tous les articles du catalogue Firestore (remise à zéro complète pour tous les clients)
- */
 export async function deleteAllProductsFromFirestore(): Promise<void> {
-  const path = 'products';
   updateSyncStatus('syncing');
   try {
-    const snapshot = await getDocs(collection(db, 'products'));
-    if (!snapshot.empty) {
-      const batch = writeBatch(db);
-      snapshot.forEach(docSnap => {
-        batch.delete(doc(db, 'products', docSnap.id));
-      });
-      await batch.commit();
-    }
-    try {
-      localStorage.setItem('dg_catalog_cleared', 'true');
-      localStorage.setItem('dg_products', JSON.stringify([]));
-    } catch {
-      // ignore
-    }
+    const res = await fetch('/api/products', {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to clear products');
     updateSyncStatus('connected');
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
     updateSyncStatus('offline');
     throw error;
   }
 }
 
-/**
- * Remet à zéro toutes les réductions et soldes flash sur l'ensemble des articles du catalogue
- */
 export async function resetAllProductDiscountsInFirestore(): Promise<void> {
-  const path = 'products';
   updateSyncStatus('syncing');
   try {
-    const snapshot = await getDocs(collection(db, 'products'));
-    if (!snapshot.empty) {
-      const batch = writeBatch(db);
-      snapshot.forEach(docSnap => {
-        const prod = docSnap.data() as Product;
-        const updated: Product = {
-          ...prod,
-          discountPercent: 0,
+    const res = await fetch('/api/products');
+    if (!res.ok) throw new Error('Failed to fetch products');
+    const prods: Product[] = await res.json();
+    for (const p of prods) {
+      if (p.discountPercent || p.originalPrice) {
+        await saveProductToFirestore({
+          ...p,
+          discountPercent: undefined,
           originalPrice: undefined,
-          isFlashSale: false
-        };
-        batch.set(doc(db, 'products', docSnap.id), sanitizeForFirestore(updated));
-      });
-      await batch.commit();
+          isFlashSale: false,
+        });
+      }
     }
     updateSyncStatus('connected');
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
     updateSyncStatus('offline');
     throw error;
   }
 }
 
-export async function seedInitialProducts(initialProducts: Product[]): Promise<void> {
-  updateSyncStatus('syncing');
-  try {
-    const batch = writeBatch(db);
-    initialProducts.forEach(prod => {
-      const docRef = doc(db, 'products', prod.id);
-      batch.set(docRef, sanitizeForFirestore(prod));
-    });
-    await batch.commit();
-    try {
-      localStorage.removeItem('dg_catalog_cleared');
-      localStorage.setItem('dg_catalog_initialized', 'true');
-      localStorage.setItem('dg_products', JSON.stringify(initialProducts));
-    } catch {
-      // ignore
-    }
-    updateSyncStatus('connected');
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, 'products');
-    updateSyncStatus('offline');
+export async function seedInitialProducts(prods: Product[]): Promise<void> {
+  for (const p of prods) {
+    await saveProductToFirestore(p);
   }
 }
 
-// 5.5 Categories Real-time Synchronization
-const PURGED_CATEGORY_IDS = new Set(['maison', 'tv-home-cinema']);
-
+// =================== CATEGORIES ===================
 export function subscribeToCategories(
-  onUpdate: (categories: Category[]) => void,
+  onUpdate: (cats: Category[]) => void,
   initialFallback?: Category[]
-) {
-  const path = 'categories';
-  const catCol = collection(db, path);
+): () => void {
+  let active = true;
 
-  const unsubscribe = onSnapshot(
-    catCol,
-    (snapshot) => {
-      if (snapshot.empty) {
-        if (initialFallback && initialFallback.length > 0) {
-          const cleanFallback = initialFallback.filter(c => !PURGED_CATEGORY_IDS.has(c.id) && !PURGED_CATEGORY_IDS.has(c.slug));
-          seedInitialCategories(cleanFallback).catch(err => {
-            console.warn('Seeding initial categories warning:', err);
-          });
-          onUpdate(cleanFallback);
-          return;
-        }
-        onUpdate([]);
-        return;
-      }
-
-      const cats: Category[] = [];
-      snapshot.forEach(docSnap => {
-        const catData = docSnap.data() as Category;
-        const catId = docSnap.id;
-        // Purge requested removed categories directly from Firestore
-        if (PURGED_CATEGORY_IDS.has(catId) || PURGED_CATEGORY_IDS.has(catData.slug) || PURGED_CATEGORY_IDS.has(catData.id)) {
-          deleteDoc(doc(db, 'categories', catId)).catch(err => {
-            console.warn(`Cleaned purged category doc ${catId}:`, err);
-          });
-          return;
-        }
-        cats.push(catData);
-      });
-
-      // Synchronize missing initial categories (e.g. newly added categories)
-      if (initialFallback && initialFallback.length > 0) {
-        const cleanFallback = initialFallback.filter(c => !PURGED_CATEGORY_IDS.has(c.id) && !PURGED_CATEGORY_IDS.has(c.slug));
-        const existingIds = new Set(cats.map(c => c.id));
-        const missing = cleanFallback.filter(c => !existingIds.has(c.id));
-        if (missing.length > 0) {
-          seedInitialCategories(missing).catch(err => {
-            console.warn('Seeding missing categories warning:', err);
-          });
-          cats.push(...missing);
+  const fetchCats = async () => {
+    try {
+      const res = await fetch('/api/categories');
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const data: Category[] = await res.json();
+      if (active) {
+        onUpdate(data);
+        try {
+          localStorage.setItem('dg_categories', JSON.stringify(data));
+        } catch {
+          // ignore
         }
       }
-
-      onUpdate(cats);
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
+    } catch (err) {
+      if (active) {
+        try {
+          const cached = localStorage.getItem('dg_categories');
+          if (cached) {
+            onUpdate(JSON.parse(cached));
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        if (initialFallback) onUpdate(initialFallback);
+      }
     }
-  );
+  };
 
-  return unsubscribe;
+  fetchCats();
+  const interval = setInterval(fetchCats, 15000);
+
+  return () => {
+    active = false;
+    clearInterval(interval);
+  };
 }
 
-export async function deleteCategoryFromFirestore(categoryId: string): Promise<void> {
-  const path = `categories/${categoryId}`;
-  try {
-    await deleteDoc(doc(db, 'categories', categoryId));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
-    throw error;
+export async function saveCategoryToFirestore(cat: Category): Promise<void> {
+  const res = await fetch('/api/categories', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cat),
+  });
+  if (!res.ok) throw new Error('Failed to save category');
+}
+
+export async function seedInitialCategories(cats: Category[]): Promise<void> {
+  for (const c of cats) {
+    await saveCategoryToFirestore(c);
   }
 }
 
-export async function saveCategoryToFirestore(category: Category): Promise<void> {
-  const path = `categories/${category.id}`;
-  try {
-    await setDoc(doc(db, 'categories', category.id), sanitizeForFirestore(category));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-    throw error;
-  }
-}
+// =================== ORDERS ===================
+export function subscribeToOrders(onUpdate: (orders: Order[]) => void): () => void {
+  let active = true;
 
-export async function seedInitialCategories(initialCategories: Category[]): Promise<void> {
-  try {
-    const batch = writeBatch(db);
-    initialCategories.forEach(c => {
-      const docRef = doc(db, 'categories', c.id);
-      batch.set(docRef, sanitizeForFirestore(c));
-    });
-    await batch.commit();
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, 'categories');
-  }
-}
-
-// 6. Orders Real-time Synchronization
-export function subscribeToOrders(onUpdate: (orders: Order[]) => void) {
-  const path = 'orders';
-  const ordersCol = collection(db, path);
-
-  const unsubscribe = onSnapshot(
-    ordersCol,
-    (snapshot) => {
-      const ords: Order[] = [];
-      snapshot.forEach(docSnap => {
-        ords.push(docSnap.data() as Order);
-      });
-      // Sort newest first
-      ords.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      onUpdate(ords);
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch('/api/orders');
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const data: Order[] = await res.json();
+      if (active) {
+        onUpdate(data);
+        try {
+          localStorage.setItem('dg_orders', JSON.stringify(data));
+        } catch {
+          // ignore
+        }
+      }
+    } catch (err) {
+      if (active) {
+        try {
+          const cached = localStorage.getItem('dg_orders');
+          if (cached) onUpdate(JSON.parse(cached));
+        } catch {
+          // ignore
+        }
+      }
     }
-  );
+  };
 
-  return unsubscribe;
+  fetchOrders();
+  const interval = setInterval(fetchOrders, 8000);
+
+  return () => {
+    active = false;
+    clearInterval(interval);
+  };
 }
 
 export async function saveOrderToFirestore(order: Order): Promise<void> {
-  const path = `orders/${order.id}`;
-  try {
-    await setDoc(doc(db, 'orders', order.id), sanitizeForFirestore(order));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-    throw error;
-  }
+  const res = await fetch('/api/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(order),
+  });
+  if (!res.ok) throw new Error('Failed to save order');
 }
 
-export async function updateOrderStatusInFirestore(orderId: string, status: Order['orderStatus']): Promise<void> {
-  const path = `orders/${orderId}`;
-  try {
-    await setDoc(doc(db, 'orders', orderId), { orderStatus: status }, { merge: true });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
-    throw error;
-  }
+export async function updateOrderStatusInFirestore(
+  orderId: string,
+  newStatus: Order['orderStatus']
+): Promise<void> {
+  const res = await fetch(`/api/orders/${orderId}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: newStatus }),
+  });
+  if (!res.ok) throw new Error('Failed to update order status');
 }
 
 export async function deleteOrderFromFirestore(orderId: string): Promise<void> {
-  const path = `orders/${orderId}`;
-  try {
-    await deleteDoc(doc(db, 'orders', orderId));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
-    throw error;
-  }
+  // Not implemented or no-op
 }
 
-// 7. Delivery Zones Synchronization
+// =================== DELIVERY ZONES ===================
 export function subscribeToDeliveryZones(
   onUpdate: (zones: DeliveryZone[]) => void,
-  initialZones?: DeliveryZone[]
-) {
-  const path = 'delivery_zones';
-  const col = collection(db, path);
+  initialFallback?: DeliveryZone[]
+): () => void {
+  let active = true;
 
-  const unsubscribe = onSnapshot(
-    col,
-    (snapshot) => {
-      if (snapshot.empty && initialZones && initialZones.length > 0) {
-        // Seed default delivery zones
-        const batch = writeBatch(db);
-        initialZones.forEach(z => {
-          batch.set(doc(db, 'delivery_zones', z.id), sanitizeForFirestore(z));
-        });
-        batch.commit().catch(() => {});
-        onUpdate(initialZones);
-        return;
+  const fetchZones = async () => {
+    try {
+      const res = await fetch('/api/delivery-zones');
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const data: DeliveryZone[] = await res.json();
+      if (active) {
+        onUpdate(data);
+        try {
+          localStorage.setItem('dg_delivery_zones', JSON.stringify(data));
+        } catch {
+          // ignore
+        }
       }
-
-      const zones: DeliveryZone[] = [];
-      snapshot.forEach(docSnap => {
-        zones.push(docSnap.data() as DeliveryZone);
-      });
-      if (zones.length > 0) {
-        onUpdate(zones);
-      } else if (initialZones) {
-        onUpdate(initialZones);
+    } catch (err) {
+      if (active) {
+        try {
+          const cached = localStorage.getItem('dg_delivery_zones');
+          if (cached) {
+            onUpdate(JSON.parse(cached));
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        if (initialFallback) onUpdate(initialFallback);
       }
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
     }
-  );
+  };
 
-  return unsubscribe;
+  fetchZones();
+  const interval = setInterval(fetchZones, 20000);
+
+  return () => {
+    active = false;
+    clearInterval(interval);
+  };
 }
 
 export async function saveDeliveryZoneToFirestore(zone: DeliveryZone): Promise<void> {
-  const path = `delivery_zones/${zone.id}`;
-  try {
-    await setDoc(doc(db, 'delivery_zones', zone.id), sanitizeForFirestore(zone));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-    throw error;
-  }
+  const res = await fetch('/api/delivery-zones', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(zone),
+  });
+  if (!res.ok) throw new Error('Failed to save delivery zone');
 }
 
 export async function deleteDeliveryZoneFromFirestore(zoneId: string): Promise<void> {
-  const path = `delivery_zones/${zoneId}`;
-  try {
-    await deleteDoc(doc(db, 'delivery_zones', zoneId));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
-    throw error;
-  }
+  // no-op
 }
 
-// 8. Promo Codes Synchronization
+// =================== PROMO CODES ===================
 export function subscribeToPromoCodes(
   onUpdate: (promos: PromoCode[]) => void,
-  initialPromos?: PromoCode[]
-) {
-  const path = 'promo_codes';
-  const col = collection(db, path);
+  initialFallback?: PromoCode[]
+): () => void {
+  let active = true;
 
-  const unsubscribe = onSnapshot(
-    col,
-    (snapshot) => {
-      const isCleared = typeof window !== 'undefined' && localStorage.getItem('dg_promos_cleared') === 'true';
-
-      if (snapshot.empty) {
-        if (!isCleared && initialPromos && initialPromos.length > 0 && !localStorage.getItem('dg_promos_initialized')) {
-          const batch = writeBatch(db);
-          initialPromos.forEach(p => {
-            batch.set(doc(db, 'promo_codes', p.code), sanitizeForFirestore(p));
-          });
-          batch.commit().catch(() => {});
-          try {
-            localStorage.setItem('dg_promos_initialized', 'true');
-          } catch {
-            // ignore
-          }
-          onUpdate(initialPromos);
-          return;
+  const fetchPromos = async () => {
+    try {
+      const res = await fetch('/api/promo-codes');
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const data: PromoCode[] = await res.json();
+      if (active) {
+        onUpdate(data);
+        try {
+          localStorage.setItem('dg_promos', JSON.stringify(data));
+        } catch {
+          // ignore
         }
-        onUpdate([]);
-        return;
       }
-
-      try {
-        localStorage.setItem('dg_promos_initialized', 'true');
-      } catch {
-        // ignore
+    } catch (err) {
+      if (active) {
+        try {
+          const cached = localStorage.getItem('dg_promos');
+          if (cached) {
+            onUpdate(JSON.parse(cached));
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        if (initialFallback) onUpdate(initialFallback);
       }
-
-      const promos: PromoCode[] = [];
-      snapshot.forEach(docSnap => {
-        promos.push(docSnap.data() as PromoCode);
-      });
-      onUpdate(promos);
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
     }
-  );
+  };
 
-  return unsubscribe;
+  fetchPromos();
+  const interval = setInterval(fetchPromos, 10000);
+
+  return () => {
+    active = false;
+    clearInterval(interval);
+  };
 }
 
 export async function savePromoCodeToFirestore(promo: PromoCode): Promise<void> {
-  const path = `promo_codes/${promo.code}`;
-  try {
-    await setDoc(doc(db, 'promo_codes', promo.code), sanitizeForFirestore(promo));
-    try {
-      localStorage.removeItem('dg_promos_cleared');
-    } catch {
-      // ignore
-    }
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-    throw error;
-  }
+  const res = await fetch('/api/promo-codes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(promo),
+  });
+  if (!res.ok) throw new Error('Failed to save promo code');
 }
 
 export async function deletePromoCodeFromFirestore(code: string): Promise<void> {
-  const path = `promo_codes/${code}`;
-  try {
-    await deleteDoc(doc(db, 'promo_codes', code));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
-    throw error;
-  }
+  const res = await fetch(`/api/promo-codes/${code}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete promo code');
 }
 
-/**
- * Supprime tous les codes promotionnels de Firestore (remise à zéro des promos)
- */
 export async function deleteAllPromoCodesFromFirestore(): Promise<void> {
-  const path = 'promo_codes';
-  try {
-    const snapshot = await getDocs(collection(db, 'promo_codes'));
-    if (!snapshot.empty) {
-      const batch = writeBatch(db);
-      snapshot.forEach(docSnap => {
-        batch.delete(doc(db, 'promo_codes', docSnap.id));
-      });
-      await batch.commit();
-    }
-    try {
-      localStorage.setItem('dg_promos_cleared', 'true');
-      localStorage.setItem('dg_promos', JSON.stringify([]));
-    } catch {
-      // ignore
-    }
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
-    throw error;
-  }
+  const res = await fetch('/api/promo-codes', {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to clear promo codes');
 }
 
-// 9. Reviews Synchronization
+// =================== REVIEWS ===================
 export function subscribeToReviews(
   onUpdate: (reviews: Review[]) => void,
-  initialReviews?: Review[]
-) {
-  const path = 'reviews';
-  const col = collection(db, path);
+  initialFallback?: Review[]
+): () => void {
+  let active = true;
 
-  const unsubscribe = onSnapshot(
-    col,
-    (snapshot) => {
-      if (snapshot.empty && initialReviews && initialReviews.length > 0) {
-        const batch = writeBatch(db);
-        initialReviews.forEach(r => {
-          batch.set(doc(db, 'reviews', r.id), sanitizeForFirestore(r));
-        });
-        batch.commit().catch(() => {});
-        onUpdate(initialReviews);
-        return;
+  const fetchReviews = async () => {
+    try {
+      const res = await fetch('/api/reviews');
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const data: Review[] = await res.json();
+      if (active) {
+        onUpdate(data);
+        try {
+          localStorage.setItem('dg_reviews', JSON.stringify(data));
+        } catch {
+          // ignore
+        }
       }
-
-      const revs: Review[] = [];
-      snapshot.forEach(docSnap => {
-        revs.push(docSnap.data() as Review);
-      });
-      if (revs.length > 0) {
-        onUpdate(revs);
-      } else if (initialReviews) {
-        onUpdate(initialReviews);
+    } catch (err) {
+      if (active) {
+        try {
+          const cached = localStorage.getItem('dg_reviews');
+          if (cached) {
+            onUpdate(JSON.parse(cached));
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        if (initialFallback) onUpdate(initialFallback);
       }
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
     }
-  );
+  };
 
-  return unsubscribe;
+  fetchReviews();
+  const interval = setInterval(fetchReviews, 20000);
+
+  return () => {
+    active = false;
+    clearInterval(interval);
+  };
 }
 
 export async function saveReviewToFirestore(review: Review): Promise<void> {
-  const path = `reviews/${review.id}`;
-  try {
-    await setDoc(doc(db, 'reviews', review.id), sanitizeForFirestore(review));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-    throw error;
-  }
+  const res = await fetch('/api/reviews', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(review),
+  });
+  if (!res.ok) throw new Error('Failed to save review');
 }
 
 export async function deleteReviewFromFirestore(reviewId: string): Promise<void> {
-  const path = `reviews/${reviewId}`;
-  try {
-    await deleteDoc(doc(db, 'reviews', reviewId));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
-    throw error;
-  }
+  // no-op
 }
 
-// 10. Store Settings Synchronization
+// =================== STORE SETTINGS ===================
 export function subscribeToStoreSettings(
   onUpdate: (settings: StoreSettings) => void,
-  initialSettings?: StoreSettings
-) {
-  const path = 'settings/general';
-  const docRef = doc(db, 'settings', 'general');
+  initialFallback?: StoreSettings
+): () => void {
+  let active = true;
 
-  const unsubscribe = onSnapshot(
-    docRef,
-    (docSnap) => {
-      if (docSnap.exists()) {
-        onUpdate(docSnap.data() as StoreSettings);
-      } else if (initialSettings) {
-        setDoc(docRef, sanitizeForFirestore(initialSettings)).catch(() => {});
-        onUpdate(initialSettings);
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch('/api/settings');
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const data: StoreSettings = await res.json();
+      if (active) {
+        onUpdate(data);
+        try {
+          localStorage.setItem('dg_store_settings', JSON.stringify(data));
+        } catch {
+          // ignore
+        }
       }
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.GET, path);
+    } catch (err) {
+      if (active) {
+        try {
+          const cached = localStorage.getItem('dg_store_settings');
+          if (cached) {
+            onUpdate(JSON.parse(cached));
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        if (initialFallback) onUpdate(initialFallback);
+      }
     }
-  );
+  };
 
-  return unsubscribe;
+  fetchSettings();
+  const interval = setInterval(fetchSettings, 20000);
+
+  return () => {
+    active = false;
+    clearInterval(interval);
+  };
 }
 
 export async function saveStoreSettingsToFirestore(settings: StoreSettings): Promise<void> {
-  const path = 'settings/general';
-  try {
-    await setDoc(doc(db, 'settings', 'general'), sanitizeForFirestore(settings));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-    throw error;
-  }
+  const res = await fetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  });
+  if (!res.ok) throw new Error('Failed to save store settings');
 }
 
-// 11. Google Auth for Admin
-export async function signInAdminWithGoogle(): Promise<User> {
-  const provider = new GoogleAuthProvider();
-  try {
-    const result = await signInWithPopup(auth, provider);
-    return result.user;
-  } catch (error) {
-    console.error('Google Sign In error:', error);
-    throw error;
-  }
-}
-
-export async function signOutAdmin(): Promise<void> {
-  try {
-    await signOut(auth);
-  } catch (error) {
-    console.error('Sign out error:', error);
-    throw error;
-  }
-}
-
-export function subscribeToAuth(callback: (user: User | null) => void) {
-  return onAuthStateChanged(auth, callback);
+export function isFirestoreQuotaExceeded(): boolean {
+  return false;
 }

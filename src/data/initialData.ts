@@ -1,4 +1,4 @@
-import { Product, Category, DeliveryZone, Review, StoreSettings, Order, PromoCode } from '../types';
+import { Product, Category, DeliveryZone, Review, StoreSettings, Order, PromoCode } from '../types.ts';
 
 export const INITIAL_CATEGORIES: Category[] = [
   {

@@ -58,23 +58,25 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     setPromoSuccess('');
     const clean = promoCode.trim().toUpperCase();
 
-    // Check active promo codes from admin or default
-    const matched = promoCodes.find(p => p.code.toUpperCase() === clean);
-    if (matched) {
-      setDiscountPercent(matched.discountPercent);
-      setPromoSuccess(`Code ${matched.code} (-${matched.discountPercent}%) appliqué avec succès !`);
+    // Vérification stricte des codes promos : seuls les codes validés et actifs par l'administrateur sont acceptés
+    const matched = promoCodes.find(p => p.code.trim().toUpperCase() === clean);
+    if (!matched) {
+      setPromoError('Code promotionnel inexistant ou supprimé');
       return;
     }
 
-    if (clean === 'BIENVENUE10' || clean === 'GAAW10') {
-      setDiscountPercent(10);
-      setPromoSuccess('Code promo -10% appliqué avec succès !');
-    } else if (clean === 'SENEGAL15') {
-      setDiscountPercent(15);
-      setPromoSuccess('Code VIP -15% appliqué !');
-    } else {
-      setPromoError('Code promo invalide ou expiré');
+    if (matched.isValidated === false) {
+      setPromoError('Ce code promo est en attente de validation par l\'administrateur');
+      return;
     }
+
+    if (matched.isActive === false) {
+      setPromoError('Ce code promo est actuellement désactivé par l\'administrateur');
+      return;
+    }
+
+    setDiscountPercent(matched.discountPercent);
+    setPromoSuccess(`Code ${matched.code} (-${matched.discountPercent}%) validé avec succès !`);
   };
 
   return (

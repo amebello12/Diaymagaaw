@@ -3,46 +3,36 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
-import firebaseConfig from './firebase-applet-config.json';
-import { INITIAL_PRODUCTS, INITIAL_STORE_SETTINGS } from './src/data/initialData';
-import { Product, StoreSettings } from './src/types';
-import { generateMetaCatalogCsv, generateMetaCatalogXml } from './src/utils/whatsappCatalogGenerator';
+import { 
+  seedDatabaseIfEmpty, 
+  getProducts, 
+  upsertProduct, 
+  deleteProductById, 
+  clearAllProducts,
+  getCategories,
+  upsertCategory,
+  deleteCategoryById,
+  getOrders,
+  createOrder,
+  updateOrderStatus,
+  getPromoCodes,
+  upsertPromoCode,
+  deletePromoCodeByCode,
+  clearAllPromoCodes,
+  getDeliveryZones,
+  upsertDeliveryZone,
+  getReviews,
+  addReview,
+  getStoreSettings,
+  saveStoreSettings
+} from './src/db/queries.ts';
+import { Product, StoreSettings } from './src/types.ts';
+import { generateMetaCatalogCsv, generateMetaCatalogXml } from './src/utils/whatsappCatalogGenerator.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT) || 3000;
-
-// Initialize Firebase App for backend real-time catalog fetching
-const firebaseApp = initializeApp(firebaseConfig);
-const firestoreDb = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
-
-/**
- * Retrieve latest products from Firestore with fallback to initial data
- */
-async function getLiveProducts(): Promise<{ products: Product[]; settings: StoreSettings }> {
-  try {
-    const productsSnap = await getDocs(collection(firestoreDb, 'products'));
-    const products: Product[] = [];
-    if (!productsSnap.empty) {
-      productsSnap.forEach((doc) => {
-        products.push(doc.data() as Product);
-      });
-    }
-    return {
-      products: products.length > 0 ? products : INITIAL_PRODUCTS,
-      settings: INITIAL_STORE_SETTINGS,
-    };
-  } catch (err) {
-    console.warn('Backend Firestore fetch fallback to initial data:', err);
-    return {
-      products: INITIAL_PRODUCTS,
-      settings: INITIAL_STORE_SETTINGS,
-    };
-  }
-}
 
 /**
  * Extract canonical base URL from incoming HTTP request
@@ -56,70 +46,219 @@ function getBaseUrl(req: Request): string {
 
 async function startServer() {
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: '15mb' }));
 
-// 1. Meta Product Image endpoint (serves real binary JPG/PNG image so CSV/XML does not bloat with base64 data URIs)
-  app.get(
-    [
-      '/api/catalog/image/:productId',
-      '/api/catalog/image/:productId.jpg',
-      '/api/catalog/image/:productId.png',
-      '/catalog/image/:productId.jpg'
-    ],
-    async (req: Request, res: Response) => {
-      try {
-        const { productId } = req.params;
-        const cleanId = (productId || '').replace(/\.(jpg|png|jpeg|webp)$/i, '');
-        const { products } = await getLiveProducts();
-        const product = products.find((p) => p.id === cleanId || p.sku === cleanId || p.slug === cleanId);
+  // Seed database tables on startup if empty
+  await seedDatabaseIfEmpty();
 
-        const rawImage = product?.images && product.images[0] ? product.images[0] : '';
-        if (rawImage.startsWith('data:image')) {
-          const match = rawImage.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
-          if (match) {
-            const format = match[1] === 'jpg' ? 'jpeg' : match[1];
-            const buffer = Buffer.from(match[2], 'base64');
-            res.setHeader('Content-Type', `image/${format}`);
-            res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            return res.status(200).send(buffer);
-          }
-        } else if (rawImage.startsWith('http://') || rawImage.startsWith('https://')) {
-          return res.redirect(rawImage);
-        }
+  // =================== REST API ROUTES (PostgreSQL / Cloud SQL) ===================
 
-        // Fallback to store logo or placeholder
-        const logoPath = path.resolve(__dirname, 'public', 'logo.jpg');
-        if (fs.existsSync(logoPath)) {
-          res.setHeader('Content-Type', 'image/jpeg');
-          res.setHeader('Cache-Control', 'public, max-age=86400');
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          return res.sendFile(logoPath);
-        }
-        return res.status(404).send('Image not found');
-      } catch (err) {
-        console.error('Error serving product image:', err);
-        return res.status(500).send('Error serving image');
-      }
+  // Products
+  app.get('/api/products', async (_req: Request, res: Response) => {
+    try {
+      const data = await getProducts();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch products' });
     }
-  );
+  });
 
-  // 2. Meta Commerce Manager / Facebook Marketplace / WhatsApp Business live CSV feed
+  app.post('/api/products', async (req: Request, res: Response) => {
+    try {
+      await upsertProduct(req.body);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to save product' });
+    }
+  });
+
+  app.delete('/api/products/:id', async (req: Request, res: Response) => {
+    try {
+      await deleteProductById(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete product' });
+    }
+  });
+
+  app.delete('/api/products', async (_req: Request, res: Response) => {
+    try {
+      await clearAllProducts();
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to clear products' });
+    }
+  });
+
+  // Categories
+  app.get('/api/categories', async (_req: Request, res: Response) => {
+    try {
+      const data = await getCategories();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch categories' });
+    }
+  });
+
+  app.post('/api/categories', async (req: Request, res: Response) => {
+    try {
+      await upsertCategory(req.body);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to save category' });
+    }
+  });
+
+  app.delete('/api/categories/:id', async (req: Request, res: Response) => {
+    try {
+      await deleteCategoryById(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete category' });
+    }
+  });
+
+  // Orders
+  app.get('/api/orders', async (_req: Request, res: Response) => {
+    try {
+      const data = await getOrders();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch orders' });
+    }
+  });
+
+  app.post('/api/orders', async (req: Request, res: Response) => {
+    try {
+      await createOrder(req.body);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to save order' });
+    }
+  });
+
+  app.patch('/api/orders/:id/status', async (req: Request, res: Response) => {
+    try {
+      const { status } = req.body;
+      await updateOrderStatus(req.params.id, status);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update order status' });
+    }
+  });
+
+  // Promo Codes
+  app.get('/api/promo-codes', async (_req: Request, res: Response) => {
+    try {
+      const data = await getPromoCodes();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch promo codes' });
+    }
+  });
+
+  app.post('/api/promo-codes', async (req: Request, res: Response) => {
+    try {
+      await upsertPromoCode(req.body);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to save promo code' });
+    }
+  });
+
+  app.delete('/api/promo-codes/:code', async (req: Request, res: Response) => {
+    try {
+      await deletePromoCodeByCode(req.params.code);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete promo code' });
+    }
+  });
+
+  app.delete('/api/promo-codes', async (_req: Request, res: Response) => {
+    try {
+      await clearAllPromoCodes();
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to clear promo codes' });
+    }
+  });
+
+  // Delivery Zones
+  app.get('/api/delivery-zones', async (_req: Request, res: Response) => {
+    try {
+      const data = await getDeliveryZones();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch delivery zones' });
+    }
+  });
+
+  app.post('/api/delivery-zones', async (req: Request, res: Response) => {
+    try {
+      await upsertDeliveryZone(req.body);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to save delivery zone' });
+    }
+  });
+
+  // Reviews
+  app.get('/api/reviews', async (_req: Request, res: Response) => {
+    try {
+      const data = await getReviews();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch reviews' });
+    }
+  });
+
+  app.post('/api/reviews', async (req: Request, res: Response) => {
+    try {
+      await addReview(req.body);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to save review' });
+    }
+  });
+
+  // Store Settings
+  app.get('/api/settings', async (_req: Request, res: Response) => {
+    try {
+      const data = await getStoreSettings();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch settings' });
+    }
+  });
+
+  app.post('/api/settings', async (req: Request, res: Response) => {
+    try {
+      await saveStoreSettings(req.body);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to save settings' });
+    }
+  });
+
+  // =================== CATALOG FEEDS (PostgreSQL powered) ===================
+
+  // 1. Meta Commerce Manager / Facebook Marketplace / WhatsApp Business live CSV feed
   app.get(
     [
       '/api/catalog/feed.csv',
       '/catalog.csv',
-      '/feed.csv',
-      '/catalog-feed.csv',
       '/api/catalog/meta-feed.csv',
       '/api/catalog/facebook-feed.csv',
       '/api/catalog/whatsapp-feed.csv',
     ],
     async (req: Request, res: Response) => {
       try {
-        const { products, settings } = await getLiveProducts();
-        const baseUrl = getBaseUrl(req);
-        const csv = generateMetaCatalogCsv(products, settings, baseUrl);
+        const [liveProducts, settings] = await Promise.all([
+          getProducts(),
+          getStoreSettings(),
+        ]);
+        const csv = generateMetaCatalogCsv(liveProducts, settings);
         
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', 'inline; filename="catalog-facebook-whatsapp-feed.csv"');
@@ -134,24 +273,24 @@ async function startServer() {
     }
   );
 
-  // 3. Meta Commerce / Google Merchant RSS 2.0 XML data feed
+  // 2. Meta Commerce / Google Merchant RSS 2.0 XML data feed
   app.get(
     [
       '/api/catalog/feed.xml',
       '/catalog.xml',
-      '/feed.xml',
-      '/catalog-feed.xml',
       '/api/catalog/meta-feed.xml',
       '/api/catalog/facebook-feed.xml',
     ],
     async (req: Request, res: Response) => {
       try {
-        const { products, settings } = await getLiveProducts();
+        const [liveProducts, settings] = await Promise.all([
+          getProducts(),
+          getStoreSettings(),
+        ]);
         const baseUrl = getBaseUrl(req);
-        const xml = generateMetaCatalogXml(products, settings, baseUrl);
+        const xml = generateMetaCatalogXml(liveProducts, settings, baseUrl);
 
         res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-        res.setHeader('Content-Disposition', 'inline; filename="catalog-facebook-whatsapp-feed.xml"');
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
         res.setHeader('Cache-Control', 'public, max-age=60');
@@ -163,22 +302,22 @@ async function startServer() {
     }
   );
 
-  // 4. Catalog Feed status and direct link metadata
+  // 3. Catalog Feed status and direct link metadata
   app.get('/api/catalog/summary', async (req: Request, res: Response) => {
     try {
-      const { products } = await getLiveProducts();
+      const liveProducts = await getProducts();
       const baseUrl = getBaseUrl(req);
-      const inStock = products.filter((p) => p.stock > 0).length;
+      const inStock = liveProducts.filter((p) => p.stock > 0).length;
 
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.json({
         success: true,
         store: 'DIAYMA GAAW SÉNÉGAL',
-        totalProducts: products.length,
+        databaseEngine: 'PostgreSQL (Cloud SQL Developer Edition)',
+        totalProducts: liveProducts.length,
         inStockCount: inStock,
         feedUrls: {
           csv: `${baseUrl}/api/catalog/feed.csv`,
-          rootCsv: `${baseUrl}/catalog.csv`,
           xml: `${baseUrl}/api/catalog/feed.xml`,
           metaCommerce: `${baseUrl}/catalog.csv`,
           catalogPage: `${baseUrl}/#catalogue`,
@@ -197,7 +336,12 @@ async function startServer() {
 
   // 4. Server health check
   app.get('/api/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'diayma-gaaw-api', timestamp: new Date().toISOString() });
+    res.json({ 
+      status: 'ok', 
+      service: 'diayma-gaaw-api', 
+      database: 'PostgreSQL (Cloud SQL)',
+      timestamp: new Date().toISOString() 
+    });
   });
 
   // 5. Frontend Dev & Production static mounting
@@ -219,52 +363,8 @@ async function startServer() {
     app.use(vite.middlewares);
   }
 
-  // Pre-generate physical static files so that static CDNs or direct file requests never 404
-  async function syncStaticFeeds() {
-    try {
-      const { products, settings } = await getLiveProducts();
-      const defaultBaseUrl = 'https://diaymagaaw.sn';
-      const csvContent = '\uFEFF' + generateMetaCatalogCsv(products, settings, defaultBaseUrl);
-      const xmlContent = generateMetaCatalogXml(products, settings, defaultBaseUrl);
-
-      const publicDir = path.resolve(__dirname, 'public');
-      const apiCatalogDir = path.resolve(publicDir, 'api', 'catalog');
-      if (!fs.existsSync(apiCatalogDir)) {
-        fs.mkdirSync(apiCatalogDir, { recursive: true });
-      }
-
-      fs.writeFileSync(path.resolve(publicDir, 'catalog.csv'), csvContent, 'utf-8');
-      fs.writeFileSync(path.resolve(publicDir, 'feed.csv'), csvContent, 'utf-8');
-      fs.writeFileSync(path.resolve(apiCatalogDir, 'feed.csv'), csvContent, 'utf-8');
-
-      fs.writeFileSync(path.resolve(publicDir, 'catalog.xml'), xmlContent, 'utf-8');
-      fs.writeFileSync(path.resolve(publicDir, 'feed.xml'), xmlContent, 'utf-8');
-      fs.writeFileSync(path.resolve(apiCatalogDir, 'feed.xml'), xmlContent, 'utf-8');
-
-      const distDir = path.resolve(__dirname, 'dist');
-      if (fs.existsSync(distDir)) {
-        const distApiDir = path.resolve(distDir, 'api', 'catalog');
-        if (!fs.existsSync(distApiDir)) {
-          fs.mkdirSync(distApiDir, { recursive: true });
-        }
-        fs.writeFileSync(path.resolve(distDir, 'catalog.csv'), csvContent, 'utf-8');
-        fs.writeFileSync(path.resolve(distDir, 'feed.csv'), csvContent, 'utf-8');
-        fs.writeFileSync(path.resolve(distApiDir, 'feed.csv'), csvContent, 'utf-8');
-        fs.writeFileSync(path.resolve(distDir, 'catalog.xml'), xmlContent, 'utf-8');
-        fs.writeFileSync(path.resolve(distDir, 'feed.xml'), xmlContent, 'utf-8');
-        fs.writeFileSync(path.resolve(distApiDir, 'feed.xml'), xmlContent, 'utf-8');
-      }
-      console.log(`[Static Feeds] Synchronized ${products.length} products to static feed files.`);
-    } catch (err) {
-      console.warn('[Static Feeds] Error writing static files:', err);
-    }
-  }
-
-  // Run in background on startup
-  syncStaticFeeds().catch((e) => console.warn('syncStaticFeeds background error:', e));
-
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
+    console.log(`Server running with PostgreSQL backend on http://0.0.0.0:${PORT}`);
   });
 }
 

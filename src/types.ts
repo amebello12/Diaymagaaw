@@ -103,6 +103,10 @@ export interface PromoCode {
   code: string;
   discountPercent: number;
   description: string;
+  isValidated?: boolean; // Validé par l'administrateur
+  isActive?: boolean; // Actif / Suspendu
+  createdAt?: string;
+  validatedAt?: string;
 }
 
 export type ActiveView = 

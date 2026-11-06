@@ -16,32 +16,10 @@ function escapeCsvValue(val: string | number | undefined | null): string {
 }
 
 /**
- * Formate et valide l'URL d'image d'un produit pour Meta Commerce Manager
- * Meta refuse strictement les Data URIs (data:image/...) dans les flux CSV/XML.
- * On convertit donc les Data URIs en URL HTTP dédiée /api/catalog/image/:id.jpg
- */
-export function formatMetaImageUrl(rawImage: string | undefined | null, productId: string, baseUrl: string): string {
-  if (!rawImage || typeof rawImage !== 'string') {
-    return `${baseUrl}/logo.jpg`;
-  }
-  const trimmed = rawImage.trim();
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  if (trimmed.startsWith('data:image')) {
-    return `${baseUrl}/api/catalog/image/${encodeURIComponent(productId)}.jpg`;
-  }
-  if (trimmed.startsWith('/')) {
-    return `${baseUrl}${trimmed}`;
-  }
-  return `${baseUrl}/logo.jpg`;
-}
-
-/**
  * Génère le fichier CSV au format officiel Meta Commerce Manager / WhatsApp Business Catalog
  * Spécification officielle : https://www.facebook.com/business/help/120325381656392
  */
-export function generateMetaCatalogCsv(products: Product[], settings?: StoreSettings, customBaseUrl?: string): string {
+export function generateMetaCatalogCsv(products: Product[], settings?: StoreSettings): string {
   const headers = [
     'id',
     'title',
@@ -59,7 +37,7 @@ export function generateMetaCatalogCsv(products: Product[], settings?: StoreSett
     'status'
   ];
 
-  const baseUrl = customBaseUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://diaymagaaw.sn');
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://diaymagaaw.sn';
   const brandDefault = settings?.storeName || 'DIAYMA GAAW';
 
   const rows = products.map((product) => {
@@ -79,7 +57,7 @@ export function generateMetaCatalogCsv(products: Product[], settings?: StoreSett
       : '';
 
     const link = `${baseUrl}/#product-${product.slug || product.id}`;
-    const imageLink = formatMetaImageUrl(product.images?.[0], product.id, baseUrl);
+    const imageLink = product.images && product.images[0] ? product.images[0] : '';
     const brand = product.brand || brandDefault;
     const googleCategory = product.category;
     const fbCategory = product.category;
@@ -235,7 +213,7 @@ export function generateMetaCatalogXml(products: Product[], settings?: StoreSett
     const availability = (product.stock > 0) ? 'in stock' : 'out of stock';
     const condition = 'new';
     const link = `${siteUrl}/#product-${product.slug || product.id}`;
-    const imageLink = formatMetaImageUrl(product.images?.[0], product.id, siteUrl);
+    const imageLink = product.images && product.images[0] ? product.images[0] : '';
     const brand = product.brand || storeName;
 
     const basePriceNumber = product.originalPrice && product.originalPrice > product.price 

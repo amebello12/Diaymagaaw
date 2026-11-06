@@ -153,9 +153,15 @@ export default function App() {
         return [];
       }
       const saved = localStorage.getItem('dg_promos');
-      return saved ? JSON.parse(saved) : INITIAL_PROMO_CODES;
+      if (saved) {
+        const parsed: PromoCode[] = JSON.parse(saved);
+        const deletedStr = localStorage.getItem('dg_deleted_promo_codes');
+        const deleted: string[] = deletedStr ? JSON.parse(deletedStr) : [];
+        return parsed.filter(p => !deleted.includes(p.code.trim().toUpperCase()));
+      }
+      return [];
     } catch {
-      return INITIAL_PROMO_CODES;
+      return [];
     }
   });
 
@@ -287,7 +293,7 @@ export default function App() {
           // ignore
         }
       }
-    }, INITIAL_PROMO_CODES);
+    });
 
     // Synchronisation des avis clients
     const unsubReviews = subscribeToReviews((cloudReviews) => {
@@ -539,12 +545,18 @@ export default function App() {
 
   const handleApplyPromoCode = (codeStr: string): { success: boolean; message: string } => {
     const clean = codeStr.trim().toUpperCase();
-    const found = promoCodes.find(p => p.code === clean);
-    if (found) {
-      setAppliedPromo(found);
-      return { success: true, message: `Code ${found.code} appliqué (-${found.discountPercent}%) !` };
+    const found = promoCodes.find(p => p.code.trim().toUpperCase() === clean);
+    if (!found) {
+      return { success: false, message: 'Code promo inexistant ou supprimé.' };
     }
-    return { success: false, message: 'Code promo invalide pour le Sénégal.' };
+    if (found.isValidated === false) {
+      return { success: false, message: 'Ce code promo est en attente de validation par l\'administrateur.' };
+    }
+    if (found.isActive === false) {
+      return { success: false, message: 'Ce code promo a été désactivé par l\'administrateur.' };
+    }
+    setAppliedPromo(found);
+    return { success: true, message: `Code ${found.code} validé (-${found.discountPercent}%) !` };
   };
 
   // 4. Navigation Actions
@@ -648,18 +660,106 @@ export default function App() {
   };
 
   const handleAddPromoCode = async (newPromo: PromoCode) => {
-    setPromoCodes(prev => [newPromo, ...prev.filter(p => p.code !== newPromo.code)]);
+    const cleanCode = newPromo.code.trim().toUpperCase();
+    const promoToAdd: PromoCode = {
+      ...newPromo,
+      code: cleanCode,
+      isValidated: newPromo.isValidated !== false,
+      isActive: newPromo.isActive !== false,
+      createdAt: newPromo.createdAt || new Date().toISOString()
+    };
+    setPromoCodes(prev => [promoToAdd, ...prev.filter(p => p.code.trim().toUpperCase() !== cleanCode)]);
     try {
-      await savePromoCodeToFirestore(newPromo);
+      localStorage.removeItem('dg_promos_cleared');
+      await savePromoCodeToFirestore(promoToAdd);
     } catch (e) {
       console.warn('Promo sync fallback:', e);
     }
   };
 
-  const handleDeletePromoCode = async (code: string) => {
-    setPromoCodes(prev => prev.filter(p => p.code !== code));
+  const handleValidatePromoCode = async (code: string, isValidated: boolean) => {
+    const clean = code.trim().toUpperCase();
+    let updatedPromo: PromoCode | null = null;
+    setPromoCodes(prev => prev.map(p => {
+      if (p.code.trim().toUpperCase() === clean) {
+        updatedPromo = {
+          ...p,
+          isValidated,
+          validatedAt: isValidated ? new Date().toISOString() : undefined
+        };
+        return updatedPromo;
+      }
+      return p;
+    }));
+    if (updatedPromo) {
+      try {
+        await savePromoCodeToFirestore(updatedPromo);
+      } catch (e) {
+        console.warn('Validate promo sync fallback:', e);
+      }
+    }
+  };
+
+  const handleTogglePromoStatus = async (code: string, isActive: boolean) => {
+    const clean = code.trim().toUpperCase();
+    let updatedPromo: PromoCode | null = null;
+    setPromoCodes(prev => prev.map(p => {
+      if (p.code.trim().toUpperCase() === clean) {
+        updatedPromo = {
+          ...p,
+          isActive
+        };
+        return updatedPromo;
+      }
+      return p;
+    }));
+    if (updatedPromo) {
+      try {
+        await savePromoCodeToFirestore(updatedPromo);
+      } catch (e) {
+        console.warn('Toggle promo status sync fallback:', e);
+      }
+    }
+  };
+
+  const handleValidateAllPromoCodes = async () => {
+    const updated = promoCodes.map(p => ({
+      ...p,
+      isValidated: true,
+      validatedAt: new Date().toISOString()
+    }));
+    setPromoCodes(updated);
     try {
-      await deletePromoCodeFromFirestore(code);
+      localStorage.setItem('dg_promos', JSON.stringify(updated));
+      for (const p of updated) {
+        await savePromoCodeToFirestore(p);
+      }
+    } catch (e) {
+      console.warn('Validate all promos sync fallback:', e);
+    }
+  };
+
+  const handleDeletePromoCode = async (code: string) => {
+    const clean = code.trim().toUpperCase();
+    setPromoCodes(prev => {
+      const remaining = prev.filter(p => p.code.trim().toUpperCase() !== clean);
+      try {
+        localStorage.setItem('dg_promos', JSON.stringify(remaining));
+        if (remaining.length === 0) {
+          localStorage.setItem('dg_promos_cleared', 'true');
+        }
+      } catch {
+        // ignore
+      }
+      return remaining;
+    });
+
+    if (appliedPromo && appliedPromo.code.trim().toUpperCase() === clean) {
+      setAppliedPromo(null);
+    }
+
+    try {
+      await deletePromoCodeFromFirestore(clean);
     } catch (e) {
       console.warn('Delete promo sync fallback:', e);
     }
@@ -1039,6 +1139,9 @@ export default function App() {
             onDeleteOrder={handleDeleteOrder}
             onAddPromoCode={handleAddPromoCode}
             onDeletePromoCode={handleDeletePromoCode}
+            onValidatePromoCode={handleValidatePromoCode}
+            onTogglePromoStatus={handleTogglePromoStatus}
+            onValidateAllPromoCodes={handleValidateAllPromoCodes}
             onOpenExportShopify={() => setShopifyExportOpen(true)}
             onResetData={handleResetData}
             onUpdateDeliveryZone={handleUpdateDeliveryZone}
@@ -1161,6 +1264,9 @@ export default function App() {
           onDeleteOrder={handleDeleteOrder}
           onAddPromoCode={handleAddPromoCode}
           onDeletePromoCode={handleDeletePromoCode}
+          onValidatePromoCode={handleValidatePromoCode}
+          onTogglePromoStatus={handleTogglePromoStatus}
+          onValidateAllPromoCodes={handleValidateAllPromoCodes}
           onOpenExportShopify={() => {
             setAdminModalOpen(false);
             setShopifyExportOpen(true);
