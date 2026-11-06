@@ -249,9 +249,9 @@ export const Header: React.FC<HeaderProps> = ({
                     <span className="text-red-600">Stock Sénégal vérifié</span>
                   </div>
                   <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
-                    {searchResults.map((product) => (
+                    {searchResults.map((product, idx) => (
                       <button
-                        key={product.id}
+                        key={`${product.id}-${idx}`}
                         type="button"
                         onClick={() => handleProductSearchSelect(product)}
                         className="w-full p-3 flex items-center gap-3 hover:bg-gray-50 text-left transition group"
@@ -343,9 +343,9 @@ export const Header: React.FC<HeaderProps> = ({
           </form>
           {searchQuery && searchResults.length > 0 && (
             <div className="mt-2 bg-white rounded-xl shadow-lg border border-gray-100 divide-y divide-gray-100 max-h-60 overflow-y-auto">
-              {searchResults.map((product) => (
+              {searchResults.map((product, idx) => (
                 <button
-                  key={product.id}
+                  key={`${product.id}-${idx}`}
                   type="button"
                   onClick={() => handleProductSearchSelect(product)}
                   className="w-full p-2.5 flex items-center gap-2.5 text-left hover:bg-gray-50"

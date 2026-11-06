@@ -25,6 +25,7 @@ import { getVisitorStats, recordVisitHit, resetVisitorStatsToZero } from './util
 import { 
   subscribeToProducts,
   saveProductToFirestore,
+  saveProductsBatchToFirestore,
   deleteProductFromFirestore,
   deleteAllProductsFromFirestore,
   resetAllProductDiscountsInFirestore,
@@ -83,11 +84,19 @@ export default function App() {
       const saved = localStorage.getItem('dg_products');
       if (saved) {
         const parsed: Product[] = JSON.parse(saved);
-        return parsed.map(p => {
-          if (p.category === 'tv-home-cinema') return { ...p, category: 'tv-audio' };
-          if (p.category === 'maison') return { ...p, category: 'electromenager' };
-          return p;
-        });
+        const seenIds = new Set<string>();
+        const uniqueProds: Product[] = [];
+        for (const p of parsed) {
+          if (!p || !p.id || seenIds.has(p.id)) continue;
+          seenIds.add(p.id);
+          const category = p.category === 'tv-home-cinema' 
+            ? 'tv-audio' 
+            : p.category === 'maison' 
+            ? 'electromenager' 
+            : p.category;
+          uniqueProds.push({ ...p, category });
+        }
+        return uniqueProds;
       }
       return INITIAL_PRODUCTS;
     } catch {
@@ -227,15 +236,22 @@ export default function App() {
     // Synchronisation en temps réel des articles du catalogue
     const unsubProducts = subscribeToProducts((cloudProducts) => {
       if (cloudProducts !== undefined) {
-        const cleaned = cloudProducts.map(p => {
-          if (p.category === 'tv-home-cinema') return { ...p, category: 'tv-audio' };
-          if (p.category === 'maison') return { ...p, category: 'electromenager' };
-          return p;
-        });
-        setProducts(cleaned);
+        const seenIds = new Set<string>();
+        const uniqueProds: Product[] = [];
+        for (const p of cloudProducts) {
+          if (!p || !p.id || seenIds.has(p.id)) continue;
+          seenIds.add(p.id);
+          const category = p.category === 'tv-home-cinema' 
+            ? 'tv-audio' 
+            : p.category === 'maison' 
+            ? 'electromenager' 
+            : p.category;
+          uniqueProds.push({ ...p, category });
+        }
+        setProducts(uniqueProds);
         try {
-          localStorage.setItem('dg_products', JSON.stringify(cleaned));
-          if (cleaned.length === 0) {
+          localStorage.setItem('dg_products', JSON.stringify(uniqueProds));
+          if (uniqueProds.length === 0) {
             localStorage.setItem('dg_catalog_cleared', 'true');
           } else {
             localStorage.removeItem('dg_catalog_cleared');
@@ -601,7 +617,27 @@ export default function App() {
     try {
       await saveProductToFirestore(newProd);
     } catch (e) {
-      console.warn('Sync new product to Firestore fallback:', e);
+      console.warn('Sync new product to database fallback:', e);
+    }
+  };
+
+  const handleAddProductsBatch = async (productsList: Product[]) => {
+    if (!productsList || productsList.length === 0) return;
+    setProducts(prev => {
+      const incomingIds = new Set(productsList.map(p => p.id));
+      const updated = [...productsList, ...prev.filter(p => !incomingIds.has(p.id))];
+      try {
+        localStorage.setItem('dg_products', JSON.stringify(updated));
+        localStorage.removeItem('dg_catalog_cleared');
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+    try {
+      await saveProductsBatchToFirestore(productsList);
+    } catch (e) {
+      console.warn('Sync batch products to database fallback:', e);
     }
   };
 
@@ -1133,6 +1169,7 @@ export default function App() {
             syncStatus={syncStatus}
             lastSyncDate={lastSyncDate}
             onAddProduct={handleAddProduct}
+            onAddProductsBatch={handleAddProductsBatch}
             onUpdateProduct={handleUpdateProduct}
             onDeleteProduct={handleDeleteProduct}
             onUpdateOrderStatus={handleUpdateOrderStatus}

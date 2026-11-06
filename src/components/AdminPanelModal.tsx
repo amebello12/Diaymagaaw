@@ -62,6 +62,7 @@ import {
   generateWhatsAppCatalogShareMessage 
 } from '../utils/whatsappCatalogGenerator';
 import { isFirestoreQuotaExceeded } from '../utils/firebase';
+import { parseCatalogFileContent, downloadSampleCatalogCsv } from '../utils/catalogParser';
 
 // Compress image file to lightweight DataURL to avoid exceeding storage quota
 const compressAndReadImage = (file: File): Promise<string> => {
@@ -127,6 +128,7 @@ interface AdminPanelModalProps {
   settings?: StoreSettings;
   onUpdateSettings?: (settings: StoreSettings) => void;
   onAddProduct: (product: Product) => void;
+  onAddProductsBatch?: (productsList: Product[]) => void;
   onUpdateProduct: (product: Product) => void;
   onDeleteProduct: (productId: string) => void;
   onUpdateOrderStatus: (orderId: string, status: Order['orderStatus']) => void;
@@ -167,6 +169,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   settings,
   onUpdateSettings,
   onAddProduct,
+  onAddProductsBatch,
   onUpdateProduct,
   onDeleteProduct,
   onUpdateOrderStatus,
@@ -254,6 +257,71 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [copiedFeedUrl, setCopiedFeedUrl] = useState(false);
   const [testFeedStatus, setTestFeedStatus] = useState<'idle' | 'loading' | 'success'>('idle');
   const [testFeedMsg, setTestFeedMsg] = useState<string | null>(null);
+
+  // Catalog Bulk Upload state
+  const [showCatalogImportModal, setShowCatalogImportModal] = useState(false);
+  const [isImportingCatalog, setIsImportingCatalog] = useState(false);
+  const [catalogImportFeedback, setCatalogImportFeedback] = useState<string | null>(null);
+  const [catalogImportErrors, setCatalogImportErrors] = useState<string[]>([]);
+  const catalogFileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleCatalogFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImportingCatalog(true);
+    setCatalogImportFeedback(null);
+    setCatalogImportErrors([]);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const content = event.target?.result as string;
+          const result = parseCatalogFileContent(content, categories);
+
+          if (result.errors.length > 0 && result.products.length === 0) {
+            setCatalogImportErrors(result.errors);
+            setIsImportingCatalog(false);
+            return;
+          }
+
+          if (result.products.length === 0) {
+            setCatalogImportErrors(['Aucun produit valide trouvé dans le fichier importé.']);
+            setIsImportingCatalog(false);
+            return;
+          }
+
+          // Bulk save to state & PostgreSQL
+          if (onAddProductsBatch) {
+            onAddProductsBatch(result.products);
+          } else {
+            for (const p of result.products) {
+              onAddProduct(p);
+            }
+          }
+
+          setCatalogImportFeedback(`Succès ! ${result.totalParsed} article(s) ont été importés et synchronisés dans votre catalogue !`);
+          setProductFeedback(`${result.totalParsed} article(s) téléversés avec succès dans le catalogue !`);
+          setTimeout(() => setProductFeedback(null), 5000);
+          setIsImportingCatalog(false);
+
+          if (e.target) e.target.value = '';
+        } catch (err) {
+          setCatalogImportErrors([`Erreur lors du traitement : ${String(err)}`]);
+          setIsImportingCatalog(false);
+        }
+      };
+      reader.onerror = () => {
+        setCatalogImportErrors(['Erreur lors de la lecture du fichier sur votre appareil.']);
+        setIsImportingCatalog(false);
+      };
+      reader.readAsText(file);
+    } catch (err) {
+      setCatalogImportErrors([`Erreur : ${String(err)}`]);
+      setIsImportingCatalog(false);
+    }
+  };
 
   // Order filtering
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
@@ -1555,8 +1623,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {lowStockProducts.map(p => (
-                          <div key={p.id} className="p-3 bg-white rounded-xl border border-amber-200 flex items-center justify-between gap-3 shadow-xs">
+                        {lowStockProducts.map((p, idx) => (
+                          <div key={`${p.id}-${idx}`} className="p-3 bg-white rounded-xl border border-amber-200 flex items-center justify-between gap-3 shadow-xs">
                             <div className="flex items-center gap-2.5 min-w-0">
                               <img src={p.images[0]} alt="" className="w-9 h-9 object-contain rounded bg-gray-50 border shrink-0" />
                               <div className="min-w-0">
@@ -1720,10 +1788,21 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       <div className="flex flex-wrap items-center gap-2 shrink-0">
                         <button
                           onClick={startAddNew}
-                          className="px-4 py-2.5 bg-red-600 hover:bg-red-700 active:scale-98 text-white text-xs font-bold rounded-xl shadow flex items-center justify-center gap-1.5 transition"
+                          className="px-4 py-2.5 bg-red-600 hover:bg-red-700 active:scale-98 text-white text-xs font-bold rounded-xl shadow flex items-center justify-center gap-1.5 transition cursor-pointer"
                         >
                           <Plus className="w-4 h-4" />
                           <span>Ajouter un produit</span>
+                        </button>
+
+                        {/* Bouton Téléverser / Importer Catalogue (CSV, JSON, Meta, Shopify) */}
+                        <button
+                          type="button"
+                          onClick={() => setShowCatalogImportModal(true)}
+                          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white text-xs font-bold rounded-xl shadow flex items-center justify-center gap-1.5 transition cursor-pointer"
+                          title="Téléverser un catalogue complet de produits (CSV, Excel ou JSON)"
+                        >
+                          <UploadCloud className="w-4 h-4" />
+                          <span>Importer un catalogue</span>
                         </button>
 
                         {products.length > 0 && onDeleteAllProducts && (
@@ -1782,6 +1861,153 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       </div>
                     )}
                   </div>
+
+                  {/* Hidden File Input for Catalog Upload */}
+                  <input
+                    type="file"
+                    ref={catalogFileInputRef}
+                    accept=".csv,.json,.txt"
+                    className="hidden"
+                    onChange={handleCatalogFileUpload}
+                  />
+
+                  {/* MODAL: TÉLÉVERSEMENT DE CATALOGUE DE PRODUITS (CSV / JSON) */}
+                  {showCatalogImportModal && (
+                    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+                      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden">
+                        
+                        {/* Modal Header */}
+                        <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-emerald-50 via-teal-50 to-white">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md">
+                              <UploadCloud className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h3 className="font-black text-sm text-gray-900">
+                                Téléverser un Catalogue de Produits
+                              </h3>
+                              <p className="text-[11px] text-gray-500">
+                                Importez facilement vos listes d'articles (CSV, Excel ou JSON)
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setShowCatalogImportModal(false);
+                              setCatalogImportFeedback(null);
+                              setCatalogImportErrors([]);
+                            }}
+                            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6 space-y-5">
+                          
+                          {/* Success Feedback */}
+                          {catalogImportFeedback && (
+                            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-bold text-emerald-800 flex items-start gap-2.5 animate-in fade-in">
+                              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                              <div className="flex-1">
+                                <p>{catalogImportFeedback}</p>
+                                <button
+                                  onClick={() => setShowCatalogImportModal(false)}
+                                  className="mt-2 text-[11px] underline text-emerald-700 hover:text-emerald-900 block"
+                                >
+                                  Fermer et voir les articles dans le catalogue →
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Error Feedback */}
+                          {catalogImportErrors.length > 0 && (
+                            <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 space-y-1.5">
+                              <div className="flex items-center gap-2 font-bold text-red-800">
+                                <AlertCircle className="w-4 h-4 text-red-600" />
+                                <span>Erreurs lors de l'importation :</span>
+                              </div>
+                              <ul className="list-disc list-inside space-y-1 pl-1">
+                                {catalogImportErrors.map((err, idx) => (
+                                  <li key={idx} className="text-[11px]">{err}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Drag & Drop Upload Zone */}
+                          <div
+                            onClick={() => !isImportingCatalog && catalogFileInputRef.current?.click()}
+                            className={`p-8 border-2 border-dashed rounded-3xl text-center flex flex-col items-center justify-center gap-3 transition cursor-pointer ${
+                              isImportingCatalog
+                                ? 'bg-gray-50 border-gray-300 opacity-60 cursor-not-allowed'
+                                : 'bg-emerald-50/40 hover:bg-emerald-50/80 border-emerald-300 hover:border-emerald-500'
+                            }`}
+                          >
+                            <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-xs">
+                              {isImportingCatalog ? (
+                                <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                              ) : (
+                                <UploadCloud className="w-7 h-7 text-emerald-600" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-extrabold text-sm text-gray-900">
+                                {isImportingCatalog ? 'Importation en cours dans la base de données...' : 'Cliquez pour choisir un fichier de catalogue'}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                Formats acceptés : <strong>CSV (.csv)</strong> ou <strong>JSON (.json)</strong>
+                              </p>
+                            </div>
+                            <span className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs">
+                              Sélectionner un fichier sur votre appareil
+                            </span>
+                          </div>
+
+                          {/* Compatible Formats Explanations */}
+                          <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-2.5 text-xs text-gray-600">
+                            <h5 className="font-extrabold text-gray-900 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                              <span>Formats et colonnes reconnus</span>
+                            </h5>
+                            <p className="text-[11px] text-gray-500">
+                              L'importateur détecte automatiquement les formats <strong>Meta Commerce / WhatsApp Business</strong>, <strong>Shopify</strong>, ou tout fichier CSV avec au moins les colonnes <code>nom</code> (ou <code>title</code>) et <code>prix</code> (ou <code>price</code>).
+                            </p>
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              <span className="px-2 py-0.5 bg-white border border-gray-200 rounded-md font-mono text-[10px]">name / title</span>
+                              <span className="px-2 py-0.5 bg-white border border-gray-200 rounded-md font-mono text-[10px]">price / prix</span>
+                              <span className="px-2 py-0.5 bg-white border border-gray-200 rounded-md font-mono text-[10px]">original_price</span>
+                              <span className="px-2 py-0.5 bg-white border border-gray-200 rounded-md font-mono text-[10px]">category</span>
+                              <span className="px-2 py-0.5 bg-white border border-gray-200 rounded-md font-mono text-[10px]">image_link</span>
+                              <span className="px-2 py-0.5 bg-white border border-gray-200 rounded-md font-mono text-[10px]">stock</span>
+                              <span className="px-2 py-0.5 bg-white border border-gray-200 rounded-md font-mono text-[10px]">description</span>
+                            </div>
+                          </div>
+
+                          {/* Download sample CSV template */}
+                          <div className="flex items-center justify-between pt-2">
+                            <button
+                              type="button"
+                              onClick={downloadSampleCatalogCsv}
+                              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-900 hover:underline cursor-pointer"
+                            >
+                              <Download className="w-4 h-4" />
+                              <span>Télécharger un modèle CSV exemple (.csv)</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowCatalogImportModal(false)}
+                              className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition cursor-pointer"
+                            >
+                              Annuler
+                            </button>
+                          </div>
+
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Add / Edit Form Modal/Drawer in Panel */}
                   {(isAddingNewProduct || editingProduct) && (
@@ -2195,8 +2421,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {filteredProducts.map((prod) => (
-                            <tr key={prod.id} className="hover:bg-gray-50/80 transition">
+                          {filteredProducts.map((prod, idx) => (
+                            <tr key={`${prod.id}-${idx}`} className="hover:bg-gray-50/80 transition">
                               <td className="p-3.5 flex items-center gap-3">
                                 <img src={prod.images[0]} alt="" className="w-10 h-10 object-contain rounded-lg bg-gray-50 border shrink-0" />
                                 <div>
@@ -3502,8 +3728,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {products.map((p) => (
-                            <tr key={p.id} className="hover:bg-gray-50/70 transition">
+                          {products.map((p, idx) => (
+                            <tr key={`${p.id}-${idx}`} className="hover:bg-gray-50/70 transition">
                               <td className="p-2">
                                 <img
                                   src={p.images[0]}

@@ -12,11 +12,13 @@ import {
   ChevronRight,
   Plus,
   Minus,
-  Sparkles
+  Sparkles,
+  Share2
 } from 'lucide-react';
 import { Product, Review, StoreSettings } from '../types';
 import { formatFCFA, createWhatsAppProductMessage } from '../utils/currency';
 import { ActiveFlame } from './ActiveFlame';
+import { SocialShareModal } from './SocialShareModal';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -46,6 +48,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'desc' | 'specs' | 'delivery' | 'warranty' | 'reviews'>('desc');
+  const [isShareOpen, setIsShareOpen] = useState(false);
   
   // Review form state
   const [newAuthorName, setNewAuthorName] = useState('');
@@ -88,13 +91,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
             <span className="text-gray-900 font-bold truncate max-w-xs">{product.name}</span>
           </div>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center justify-center transition"
-            aria-label="Fermer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsShareOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+              title="Partager cet article sur WhatsApp, Facebook, Instagram..."
+            >
+              <Share2 className="w-3.5 h-3.5 text-gray-700" />
+              <span className="hidden sm:inline">Partager</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center justify-center transition cursor-pointer"
+              aria-label="Fermer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Modal Content */}
@@ -266,6 +279,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <MessageCircle className="w-5 h-5 fill-white" />
                   <span>Commander sur WhatsApp</span>
                 </a>
+
+                {/* 4. Partager l'article (WhatsApp, Facebook, Instagram, etc.) */}
+                <button
+                  type="button"
+                  onClick={() => setIsShareOpen(true)}
+                  className="w-full py-3 px-6 bg-gray-100 hover:bg-gray-200 active:scale-98 text-gray-800 font-bold text-xs rounded-2xl transition flex items-center justify-center gap-2 text-center border border-gray-200 cursor-pointer"
+                >
+                  <Share2 className="w-4 h-4 text-red-600" />
+                  <span>Partager l'article (WhatsApp, Facebook, Instagram...)</span>
+                </button>
               </div>
 
               {/* Fast trust assurances */}
@@ -575,6 +598,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         </div>
 
       </div>
+
+      {/* Social Share Modal */}
+      <SocialShareModal
+        product={product}
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
+        settings={settings}
+      />
     </div>
   );
 };

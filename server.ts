@@ -7,6 +7,7 @@ import {
   seedDatabaseIfEmpty, 
   getProducts, 
   upsertProduct, 
+  upsertProductsBatch,
   deleteProductById, 
   clearAllProducts,
   getCategories,
@@ -65,10 +66,15 @@ async function startServer() {
 
   app.post('/api/products', async (req: Request, res: Response) => {
     try {
-      await upsertProduct(req.body);
-      res.json({ success: true });
+      if (Array.isArray(req.body)) {
+        await upsertProductsBatch(req.body);
+        res.json({ success: true, count: req.body.length });
+      } else {
+        await upsertProduct(req.body);
+        res.json({ success: true });
+      }
     } catch (error) {
-      res.status(500).json({ error: 'Failed to save product' });
+      res.status(500).json({ error: 'Failed to save product(s)' });
     }
   });
 

@@ -140,16 +140,25 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
           <>
             {/* Product Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onSelectProduct={onSelectProduct}
-                  onAddToCart={onAddToCart}
-                  onBuyNow={onBuyNow}
-                  settings={settings}
-                />
-              ))}
+              {(() => {
+                const seen = new Set<string>();
+                return filteredProducts
+                  .filter(p => {
+                    if (seen.has(p.id)) return false;
+                    seen.add(p.id);
+                    return true;
+                  })
+                  .map((product, idx) => (
+                    <ProductCard
+                      key={`${product.id}-${idx}`}
+                      product={product}
+                      onSelectProduct={onSelectProduct}
+                      onAddToCart={onAddToCart}
+                      onBuyNow={onBuyNow}
+                      settings={settings}
+                    />
+                  ));
+              })()}
             </div>
 
             {/* View All CTA */}

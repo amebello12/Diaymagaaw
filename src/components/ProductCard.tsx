@@ -1,8 +1,9 @@
-import React from 'react';
-import { ShoppingCart, Zap, Star, MessageCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShoppingCart, Zap, Star, MessageCircle, Share2 } from 'lucide-react';
 import { Product, StoreSettings } from '../types';
 import { formatFCFA, createWhatsAppProductMessage } from '../utils/currency';
 import { ActiveFlame } from './ActiveFlame';
+import { SocialShareModal } from './SocialShareModal';
 
 interface ProductCardProps {
   product: Product;
@@ -19,61 +20,77 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onBuyNow,
   settings
 }) => {
+  const [isShareOpen, setIsShareOpen] = useState(false);
+
   return (
-    <div 
-      onClick={() => onSelectProduct(product)}
-      className="group relative bg-white rounded-2xl border border-gray-200 hover:border-red-300 hover:shadow-xl transition-all duration-300 flex flex-col justify-between overflow-hidden cursor-pointer"
-    >
-      {/* Badges Top Bar */}
-      <div className="absolute top-2.5 left-2.5 right-2.5 z-10 flex items-center justify-between pointer-events-none">
-        {product.discountPercent && product.discountPercent > 0 ? (
-          <span className="bg-gradient-to-r from-red-600 via-orange-600 to-red-600 text-white text-[11px] font-black px-2 py-0.5 rounded-lg shadow-md flex items-center gap-1 border border-red-400/40">
-            <ActiveFlame size="xs" glow={false} />
-            <span>PROMO</span>
-            <span>-{product.discountPercent}%</span>
-          </span>
-        ) : product.isFlashSale ? (
-          <span className="bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 text-white text-[11px] font-black px-2 py-0.5 rounded-lg shadow-md flex items-center gap-1 border border-red-400/40">
-            <ActiveFlame size="xs" glow={false} />
-            <span>FLASH</span>
-          </span>
-        ) : product.isNew ? (
-          <span className="bg-emerald-600 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-md">
-            NOUVEAU
-          </span>
-        ) : (
-          <div></div>
-        )}
+    <>
+      <div 
+        onClick={() => onSelectProduct(product)}
+        className="group relative bg-white rounded-2xl border border-gray-200 hover:border-red-300 hover:shadow-xl transition-all duration-300 flex flex-col justify-between overflow-hidden cursor-pointer"
+      >
+        {/* Badges Top Bar */}
+        <div className="absolute top-2.5 left-2.5 right-2.5 z-10 flex items-center justify-between pointer-events-none">
+          {product.discountPercent && product.discountPercent > 0 ? (
+            <span className="bg-gradient-to-r from-red-600 via-orange-600 to-red-600 text-white text-[11px] font-black px-2 py-0.5 rounded-lg shadow-md flex items-center gap-1 border border-red-400/40">
+              <ActiveFlame size="xs" glow={false} />
+              <span>PROMO</span>
+              <span>-{product.discountPercent}%</span>
+            </span>
+          ) : product.isFlashSale ? (
+            <span className="bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 text-white text-[11px] font-black px-2 py-0.5 rounded-lg shadow-md flex items-center gap-1 border border-red-400/40">
+              <ActiveFlame size="xs" glow={false} />
+              <span>FLASH</span>
+            </span>
+          ) : product.isNew ? (
+            <span className="bg-emerald-600 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-md">
+              NOUVEAU
+            </span>
+          ) : (
+            <div></div>
+          )}
 
-        {product.stock <= 5 && product.stock > 0 && (
-          <span className="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
-            Plus que {product.stock}
-          </span>
-        )}
-      </div>
+          {product.stock <= 5 && product.stock > 0 && (
+            <span className="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">
+              Plus que {product.stock}
+            </span>
+          )}
+        </div>
 
-      {/* Product Image */}
-      <div className="relative aspect-square w-full bg-gray-50 overflow-hidden p-3">
-        <img
-          src={product.images[0]}
-          alt={product.name}
-          className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500"
-          loading="lazy"
-        />
-        
-        {/* Bouton direct Commander via WhatsApp Business */}
-        <a
-          href={createWhatsAppProductMessage(product.name, product.price, product.sku, settings?.whatsappPhone || settings?.phone)}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="absolute bottom-2 right-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-2.5 py-1.5 rounded-xl shadow-lg transition flex items-center gap-1.5 text-[11px] font-black z-10"
-          title="Commander directement cet article sur WhatsApp"
-        >
-          <MessageCircle className="w-3.5 h-3.5 fill-white" />
-          <span>WhatsApp</span>
-        </a>
-      </div>
+        {/* Product Image */}
+        <div className="relative aspect-square w-full bg-gray-50 overflow-hidden p-3">
+          <img
+            src={product.images[0]}
+            alt={product.name}
+            className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+          />
+          
+          {/* Share Button (WhatsApp, Facebook, Instagram, etc.) */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsShareOpen(true);
+            }}
+            className="absolute bottom-2 left-2 bg-white/90 hover:bg-white active:scale-95 text-gray-700 hover:text-red-600 p-2 rounded-xl shadow-md transition flex items-center justify-center border border-gray-200 z-10 cursor-pointer"
+            title="Partager cet article (WhatsApp, Facebook, Instagram...)"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Bouton direct Commander via WhatsApp Business */}
+          <a
+            href={createWhatsAppProductMessage(product.name, product.price, product.sku, settings?.whatsappPhone || settings?.phone)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-2 right-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-2.5 py-1.5 rounded-xl shadow-lg transition flex items-center gap-1.5 text-[11px] font-black z-10"
+            title="Commander directement cet article sur WhatsApp"
+          >
+            <MessageCircle className="w-3.5 h-3.5 fill-white" />
+            <span>WhatsApp</span>
+          </a>
+        </div>
 
       {/* Content */}
       <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between">
@@ -132,5 +149,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
       </div>
     </div>
+
+    <SocialShareModal
+      product={product}
+      isOpen={isShareOpen}
+      onClose={() => setIsShareOpen(false)}
+      settings={settings}
+    />
+  </>
   );
 };

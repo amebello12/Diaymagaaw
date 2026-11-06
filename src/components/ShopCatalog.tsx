@@ -257,16 +257,25 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-5">
-                {filteredProducts.map((prod) => (
-                  <ProductCard
-                    key={prod.id}
-                    product={prod}
-                    onSelectProduct={onSelectProduct}
-                    onAddToCart={onAddToCart}
-                    onBuyNow={onBuyNow}
-                    settings={settings}
-                  />
-                ))}
+                {(() => {
+                  const seen = new Set<string>();
+                  return filteredProducts
+                    .filter(p => {
+                      if (seen.has(p.id)) return false;
+                      seen.add(p.id);
+                      return true;
+                    })
+                    .map((prod, idx) => (
+                      <ProductCard
+                        key={`${prod.id}-${idx}`}
+                        product={prod}
+                        onSelectProduct={onSelectProduct}
+                        onAddToCart={onAddToCart}
+                        onBuyNow={onBuyNow}
+                        settings={settings}
+                      />
+                    ));
+                })()}
               </div>
             )}
 

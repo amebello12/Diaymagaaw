@@ -89,6 +89,24 @@ export async function saveProductToFirestore(product: Product): Promise<void> {
   }
 }
 
+export async function saveProductsBatchToFirestore(productsList: Product[]): Promise<void> {
+  if (!productsList || productsList.length === 0) return;
+  updateSyncStatus('syncing');
+  try {
+    const res = await fetch('/api/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(productsList),
+    });
+    if (!res.ok) throw new Error('Failed to save products batch');
+    updateSyncStatus('connected');
+  } catch (error) {
+    updateSyncStatus('offline');
+    throw error;
+  }
+}
+
+
 export async function deleteProductFromFirestore(productId: string): Promise<void> {
   updateSyncStatus('syncing');
   try {

@@ -267,14 +267,14 @@ export const FlashSaleSection: React.FC<FlashSaleSectionProps> = ({
                 transform: `translateX(-${currentIndex * (100 / visibleCount)}%)`
               }}
             >
-              {promoProducts.map((prod) => {
+              {promoProducts.map((prod, idx) => {
                 const discountAmount = prod.originalPrice && prod.originalPrice > prod.price 
                   ? prod.originalPrice - prod.price 
                   : 0;
 
                 return (
                   <div
-                    key={prod.id}
+                    key={`${prod.id}-${idx}`}
                     style={{ width: `${100 / visibleCount}%` }}
                     className="shrink-0 p-2 sm:p-3"
                   >

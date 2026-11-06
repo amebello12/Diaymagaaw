@@ -149,37 +149,23 @@ export async function getProducts(): Promise<Product[]> {
 }
 
 export async function upsertProduct(product: Product): Promise<void> {
+  return upsertProductsBatch([product]);
+}
+
+export async function upsertProductsBatch(items: Product[]): Promise<void> {
+  if (!items || items.length === 0) return;
   try {
-    await db.insert(products).values({
-      id: product.id,
-      name: product.name,
-      slug: product.slug,
-      category: product.category,
-      price: product.price,
-      originalPrice: product.originalPrice ?? null,
-      discountPercent: product.discountPercent ?? null,
-      rating: product.rating ?? 5,
-      reviewsCount: product.reviewsCount ?? 0,
-      images: product.images,
-      description: product.description,
-      features: product.features,
-      stock: product.stock,
-      isFeatured: product.isFeatured ?? false,
-      isFlashSale: product.isFlashSale ?? false,
-      isNew: product.isNew ?? false,
-      brand: product.brand || 'DIAYMA GAAW',
-      sku: product.sku,
-      warranty: product.warranty ?? null,
-      updatedAt: new Date(),
-    }).onConflictDoUpdate({
-      target: products.id,
-      set: {
+    for (const product of items) {
+      await db.insert(products).values({
+        id: product.id,
         name: product.name,
         slug: product.slug,
         category: product.category,
         price: product.price,
         originalPrice: product.originalPrice ?? null,
         discountPercent: product.discountPercent ?? null,
+        rating: product.rating ?? 5,
+        reviewsCount: product.reviewsCount ?? 0,
         images: product.images,
         description: product.description,
         features: product.features,
@@ -191,11 +177,32 @@ export async function upsertProduct(product: Product): Promise<void> {
         sku: product.sku,
         warranty: product.warranty ?? null,
         updatedAt: new Date(),
-      },
-    });
+      }).onConflictDoUpdate({
+        target: products.id,
+        set: {
+          name: product.name,
+          slug: product.slug,
+          category: product.category,
+          price: product.price,
+          originalPrice: product.originalPrice ?? null,
+          discountPercent: product.discountPercent ?? null,
+          images: product.images,
+          description: product.description,
+          features: product.features,
+          stock: product.stock,
+          isFeatured: product.isFeatured ?? false,
+          isFlashSale: product.isFlashSale ?? false,
+          isNew: product.isNew ?? false,
+          brand: product.brand || 'DIAYMA GAAW',
+          sku: product.sku,
+          warranty: product.warranty ?? null,
+          updatedAt: new Date(),
+        },
+      });
+    }
   } catch (error) {
-    console.error('Database upsertProduct query failed:', error);
-    throw new Error('Failed to save product in database.', { cause: error });
+    console.error('Database upsertProductsBatch query failed:', error);
+    throw new Error('Failed to save products in database.', { cause: error });
   }
 }
 
