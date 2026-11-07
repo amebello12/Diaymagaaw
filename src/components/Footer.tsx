@@ -74,7 +74,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenAdmin, setting
           {/* Col 1 & 2: Brand Story */}
           <div className="lg:col-span-2 space-y-4">
             <div className="inline-block bg-white p-2 rounded-2xl shadow-md border border-gray-800">
-              <BrandLogo size="md" />
+              <BrandLogo size="md" customLogoUrl={settings?.customLogoUrl} />
             </div>
 
             <p className="text-xs sm:text-sm text-gray-400 leading-relaxed max-w-sm">

@@ -156,46 +156,78 @@ export async function upsertProductsBatch(items: Product[]): Promise<void> {
   if (!items || items.length === 0) return;
   try {
     for (const product of items) {
+      if (!product || !product.id || !product.name) continue;
+
+      const safeImages = Array.isArray(product.images) && product.images.length > 0
+        ? product.images
+        : (typeof product.images === 'string' && (product.images as string).trim()
+            ? [(product.images as string).trim()]
+            : ['https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=800&q=80']);
+
+      const safeFeatures = Array.isArray(product.features) && product.features.length > 0
+        ? product.features
+        : (product.features ? [String(product.features)] : [
+            'Qualité certifiée et testée DIAYMA GAAW',
+            'Compatible avec les réseaux et normes du Sénégal',
+            'Livraison express 2h à 4h sur Dakar'
+          ]);
+
+      const timestamp = Date.now();
+      const safeSlug = product.slug && product.slug.trim()
+        ? product.slug.trim()
+        : `${product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'article'}-${timestamp.toString().slice(-4)}`;
+
+      const safePrice = Math.max(0, Math.round(Number(product.price) || 0));
+      const safeOriginalPrice = product.originalPrice ? Math.max(0, Math.round(Number(product.originalPrice))) : null;
+      const safeDiscount = product.discountPercent 
+        ? Math.round(Number(product.discountPercent)) 
+        : (safeOriginalPrice && safeOriginalPrice > safePrice 
+            ? Math.round(((safeOriginalPrice - safePrice) / safeOriginalPrice) * 100) 
+            : null);
+      const safeStock = product.stock !== undefined && product.stock !== null ? Math.round(Number(product.stock)) : 10;
+      const safeBrand = (product.brand && product.brand.trim()) || 'DIAYMA GAAW';
+      const safeSku = (product.sku && product.sku.trim()) || `DG-SKU-${Math.floor(1000 + Math.random() * 9000)}`;
+
       await db.insert(products).values({
         id: product.id,
-        name: product.name,
-        slug: product.slug,
-        category: product.category,
-        price: product.price,
-        originalPrice: product.originalPrice ?? null,
-        discountPercent: product.discountPercent ?? null,
-        rating: product.rating ?? 5,
-        reviewsCount: product.reviewsCount ?? 0,
-        images: product.images,
-        description: product.description,
-        features: product.features,
-        stock: product.stock,
-        isFeatured: product.isFeatured ?? false,
-        isFlashSale: product.isFlashSale ?? false,
-        isNew: product.isNew ?? false,
-        brand: product.brand || 'DIAYMA GAAW',
-        sku: product.sku,
-        warranty: product.warranty ?? null,
+        name: product.name.trim(),
+        slug: safeSlug,
+        category: product.category || 'electromenager',
+        price: safePrice,
+        originalPrice: safeOriginalPrice,
+        discountPercent: safeDiscount,
+        rating: Number(product.rating) || 5,
+        reviewsCount: Number(product.reviewsCount) || 0,
+        images: safeImages,
+        description: product.description || product.name,
+        features: safeFeatures,
+        stock: safeStock,
+        isFeatured: Boolean(product.isFeatured),
+        isFlashSale: Boolean(product.isFlashSale),
+        isNew: Boolean(product.isNew),
+        brand: safeBrand,
+        sku: safeSku,
+        warranty: product.warranty || 'Garantie 12 Mois',
         updatedAt: new Date(),
       }).onConflictDoUpdate({
         target: products.id,
         set: {
-          name: product.name,
-          slug: product.slug,
-          category: product.category,
-          price: product.price,
-          originalPrice: product.originalPrice ?? null,
-          discountPercent: product.discountPercent ?? null,
-          images: product.images,
-          description: product.description,
-          features: product.features,
-          stock: product.stock,
-          isFeatured: product.isFeatured ?? false,
-          isFlashSale: product.isFlashSale ?? false,
-          isNew: product.isNew ?? false,
-          brand: product.brand || 'DIAYMA GAAW',
-          sku: product.sku,
-          warranty: product.warranty ?? null,
+          name: product.name.trim(),
+          slug: safeSlug,
+          category: product.category || 'electromenager',
+          price: safePrice,
+          originalPrice: safeOriginalPrice,
+          discountPercent: safeDiscount,
+          images: safeImages,
+          description: product.description || product.name,
+          features: safeFeatures,
+          stock: safeStock,
+          isFeatured: Boolean(product.isFeatured),
+          isFlashSale: Boolean(product.isFlashSale),
+          isNew: Boolean(product.isNew),
+          brand: safeBrand,
+          sku: safeSku,
+          warranty: product.warranty || 'Garantie 12 Mois',
           updatedAt: new Date(),
         },
       });

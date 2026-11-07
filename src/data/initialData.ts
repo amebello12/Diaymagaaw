@@ -680,6 +680,13 @@ export const INITIAL_STORE_SETTINGS: StoreSettings = {
   orderNoticeEmail: 'commandes@diaymagaaw.sn',
   deliveryNotificationWhatsApp: true,
   showAdminLockInFooter: false,
-  enableWhatsAppCatalogButton: true
+  enableWhatsAppCatalogButton: true,
+  // Bande passante par défaut
+  enablePromoBanner: true,
+  promoBannerText: "🔥 GRANDES PROMOTIONS AU SÉNÉGAL : Jusqu'à -20% sur l'audio et l'électroménager avec nos codes promos ! • Livraison express 2h sur Dakar • Service client 7j/7 au 70 771 72 81 🇸🇳",
+  promoBannerBadge: "VENTE FLASH",
+  promoBannerBgColor: "red",
+  promoBannerButtonText: "Profiter des promos",
+  promoBannerSpeed: "marquee"
 };
 

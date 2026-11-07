@@ -19,6 +19,7 @@ import {
 import { Product, Category, ActiveView, StoreSettings } from '../types';
 import { formatFCFA, STORE_PHONE_DISPLAY, formatPhoneNumber, cleanPhoneForWhatsApp } from '../utils/currency';
 import { BrandLogo } from './BrandLogo';
+import { PromoAnnouncementBanner } from './PromoAnnouncementBanner';
 import { ActiveFlame } from './ActiveFlame';
 
 interface HeaderProps {
@@ -150,6 +151,12 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-white shadow-sm border-b border-gray-100 font-sans">
+      {/* 0. Top Promo Announcement Banner (Bande Passante Défilante) */}
+      <PromoAnnouncementBanner 
+        settings={settings} 
+        onAction={() => handleNavClick('shop', 'promotions')} 
+      />
+
       {/* Top Notification Bar */}
       <div className="bg-gray-950 text-white text-xs py-2 px-3 sm:px-6">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1.5 sm:gap-4 text-center">
@@ -198,7 +205,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center group cursor-pointer"
               title="DIAYMA GAAW - Vends-moi vite !"
             >
-              <BrandLogo size="md" />
+              <BrandLogo size="md" customLogoUrl={settings?.customLogoUrl} />
             </button>
           </div>
 

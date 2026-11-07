@@ -140,6 +140,17 @@ export interface StoreSettings {
   whatsappCatalogUrl?: string;
   enableWhatsAppCatalogButton?: boolean;
   whatsappOrderTemplate?: string;
+  // Custom Logos & Favicons
+  customLogoUrl?: string;
+  customFaviconUrl?: string;
+  faviconEmoji?: string;
+  // Bande Passante Promotionnelle (Ticker / Marquee Banner)
+  enablePromoBanner?: boolean;
+  promoBannerText?: string;
+  promoBannerBadge?: string;
+  promoBannerBgColor?: 'red' | 'gold' | 'emerald' | 'dark' | 'blue';
+  promoBannerButtonText?: string;
+  promoBannerSpeed?: 'marquee' | 'static';
 }
 
 export interface VisitorDayStats {

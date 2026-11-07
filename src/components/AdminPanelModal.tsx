@@ -47,9 +47,11 @@ import {
   MessageCircle,
   Activity,
   Share2,
-  HelpCircle
+  HelpCircle,
+  Sparkles
 } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
+import { PromoAnnouncementBanner } from './PromoAnnouncementBanner';
 import { Product, Category, Order, PromoCode, DeliveryZone, StoreSettings, Review, VisitorStats } from '../types';
 import { formatFCFA, STORE_PHONE_RAW, formatPhoneNumber, cleanPhoneForWhatsApp } from '../utils/currency';
 import { INITIAL_STORE_SETTINGS } from '../data/initialData';
@@ -135,6 +137,9 @@ interface AdminPanelModalProps {
   onDeleteOrder?: (orderId: string) => void;
   onAddPromoCode?: (promo: PromoCode) => void;
   onDeletePromoCode?: (code: string) => void;
+  onValidatePromoCode?: (code: string, isValidated: boolean) => void;
+  onTogglePromoStatus?: (code: string, isActive: boolean) => void;
+  onValidateAllPromoCodes?: () => void;
   onOpenExportShopify: () => void;
   onResetData?: () => void;
   onUpdateDeliveryZone?: (zoneId: string, updated: Partial<DeliveryZone>) => void;
@@ -176,6 +181,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onDeleteOrder,
   onAddPromoCode,
   onDeletePromoCode,
+  onValidatePromoCode,
+  onTogglePromoStatus,
+  onValidateAllPromoCodes,
   onOpenExportShopify,
   onResetData,
   onUpdateDeliveryZone,
@@ -331,6 +339,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [newPromoCode, setNewPromoCode] = useState('');
   const [newPromoDiscount, setNewPromoDiscount] = useState(10);
   const [newPromoDesc, setNewPromoDesc] = useState('');
+  const [newPromoValidated, setNewPromoValidated] = useState(true);
+  const [newPromoActive, setNewPromoActive] = useState(true);
   const [promoFeedback, setPromoFeedback] = useState<string | null>(null);
 
   // Store Settings State
@@ -376,6 +386,55 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       setTimeout(() => {
         setSettingsSavedSuccess(false);
       }, 3500);
+    }
+  };
+
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [faviconUploading, setFaviconUploading] = useState(false);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      const compressed = await compressAndReadImage(file);
+      const updated = { ...storeSettings, customLogoUrl: compressed };
+      setStoreSettings(updated);
+      try {
+        localStorage.setItem('dg_store_settings', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      if (onUpdateSettings) onUpdateSettings(updated);
+      setSettingsSavedSuccess(true);
+      setTimeout(() => setSettingsSavedSuccess(false), 3500);
+    } catch (err) {
+      alert("Erreur lors de l'importation du logo : " + String(err));
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFaviconUploading(true);
+    try {
+      const compressed = await compressAndReadImage(file);
+      const updated = { ...storeSettings, customFaviconUrl: compressed, faviconEmoji: undefined };
+      setStoreSettings(updated);
+      try {
+        localStorage.setItem('dg_store_settings', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      if (onUpdateSettings) onUpdateSettings(updated);
+      setSettingsSavedSuccess(true);
+      setTimeout(() => setSettingsSavedSuccess(false), 3500);
+    } catch (err) {
+      alert("Erreur lors de l'importation du favicon : " + String(err));
+    } finally {
+      setFaviconUploading(false);
     }
   };
 
@@ -691,10 +750,12 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       : undefined;
 
     if (isAddingNewProduct) {
+      const timestamp = Date.now();
+      const baseSlug = formName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'article';
       const newProd: Product = {
-        id: 'prod-' + Date.now(),
+        id: 'prod-' + timestamp,
         name: formName.trim(),
-        slug: formName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        slug: `${baseSlug}-${timestamp.toString().slice(-4)}`,
         category: formCategory,
         price: Number(formPrice),
         originalPrice: Number(formOriginalPrice),
@@ -756,11 +817,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const handleSavePromo = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPromoCode.trim() || !onAddPromoCode) return;
+    const cleanCode = newPromoCode.trim().toUpperCase();
     onAddPromoCode({
-      code: newPromoCode.trim().toUpperCase(),
+      code: cleanCode,
       discountPercent: Number(newPromoDiscount),
-      description: newPromoDesc.trim() || `Réduction de ${newPromoDiscount}% au panier`
+      description: newPromoDesc.trim() || `Réduction de ${newPromoDiscount}% au panier`,
+      isValidated: newPromoValidated,
+      isActive: newPromoActive,
+      createdAt: new Date().toISOString(),
+      validatedAt: newPromoValidated ? new Date().toISOString() : undefined
     });
+    setPromoFeedback(`Code promotionnel « ${cleanCode} » défini avec succès (${newPromoValidated ? 'Validé par l\'Admin' : 'En attente de validation'}) !`);
+    setTimeout(() => setPromoFeedback(null), 5000);
     setNewPromoCode('');
     setNewPromoDiscount(10);
     setNewPromoDesc('');
@@ -933,7 +1001,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               
               <div className="text-center space-y-3">
                 <div className="flex justify-center">
-                  <BrandLogo size="lg" />
+                  <BrandLogo size="lg" customLogoUrl={storeSettings.customLogoUrl} />
                 </div>
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-700 rounded-full text-xs font-bold border border-red-100">
                   <Lock className="w-3.5 h-3.5" />
@@ -2774,27 +2842,32 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   )}
                   
                   {/* Create New Promo Code Form */}
-                  <form onSubmit={handleSavePromo} className="p-5 bg-amber-50/50 rounded-3xl border border-amber-200 space-y-4">
-                    <h4 className="font-extrabold text-sm text-gray-900 flex items-center gap-2">
-                      <Tag className="w-4 h-4 text-amber-600" />
-                      <span>Créer un nouveau Code Promotionnel</span>
-                    </h4>
+                  <form onSubmit={handleSavePromo} className="p-5 bg-gradient-to-br from-amber-50/70 to-orange-50/40 rounded-3xl border border-amber-200 space-y-4 shadow-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <h4 className="font-extrabold text-sm text-gray-900 flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-amber-600" />
+                        <span>Définir un nouveau Code Promotionnel</span>
+                      </h4>
+                      <span className="text-[11px] font-semibold text-amber-800 bg-amber-100/70 px-2.5 py-0.5 rounded-full">
+                        Réservé à l'Administrateur
+                      </span>
+                    </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Code Promo *</label>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Code Promo (Majuscules) *</label>
                         <input
                           type="text"
                           required
                           value={newPromoCode}
                           onChange={(e) => setNewPromoCode(e.target.value.toUpperCase())}
-                          placeholder="ex: TABASKI2026, GAAW20"
+                          placeholder="ex: RAMADAN25, DAKAR15, GAAW20"
                           className="w-full px-3 py-2 bg-white rounded-xl border border-gray-300 text-xs font-mono font-bold uppercase focus:outline-none focus:border-red-600"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Remise en % *</label>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Remise accordée en % *</label>
                         <input
                           type="number"
                           required
@@ -2807,44 +2880,79 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Description / Condition</label>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Description / Condition d'application</label>
                         <input
                           type="text"
                           value={newPromoDesc}
                           onChange={(e) => setNewPromoDesc(e.target.value)}
-                          placeholder="ex: -10% sur tout le panier"
+                          placeholder="ex: -15% sur les smartphones et son pro"
                           className="w-full px-3 py-2 bg-white rounded-xl border border-gray-300 text-xs focus:outline-none focus:border-red-600"
                         />
                       </div>
                     </div>
 
-                    <div className="flex justify-end">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-amber-200/60">
+                      <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-gray-800 font-medium">
+                        <input
+                          type="checkbox"
+                          checked={newPromoValidated}
+                          onChange={(e) => setNewPromoValidated(e.target.checked)}
+                          className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <span>Valider et activer immédiatement ce code pour les clients du site</span>
+                      </label>
+
                       <button
                         type="submit"
-                        className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow flex items-center gap-1.5"
+                        className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
                       >
                         <Plus className="w-4 h-4" />
-                        <span>Ajouter le code promo</span>
+                        <span>Enregistrer le code promo</span>
                       </button>
                     </div>
                   </form>
 
-                  {/* Active Promo Codes List */}
+                  {/* Informational Guidance Box */}
+                  <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl flex items-start gap-3">
+                    <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                    <div className="text-xs text-blue-900 space-y-1">
+                      <p className="font-bold">Contrôle Strict des Codes Promotionnels par l'Administrateur :</p>
+                      <p className="text-blue-800 leading-relaxed">
+                        Les clients de DIAYMA GAAW ne peuvent appliquer un code promo au panier que s'il est <strong>validé</strong> et <strong>actif</strong>. Vous pouvez à tout moment valider, suspendre ou révoquer n'importe quel code ci-dessous.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Promo Codes List */}
                   <div className="space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-200">
                       <div>
                         <h4 className="font-bold text-sm text-gray-900 flex items-center gap-2">
                           <Tag className="w-4 h-4 text-red-600" />
-                          <span>Codes promotionnels actifs au Sénégal ({promoCodes.length})</span>
+                          <span>Codes promotionnels enregistrés ({promoCodes.length})</span>
                         </h4>
                         <p className="text-xs text-gray-500">
-                          {promoCodes.length > 0
-                            ? 'Codes applicables immédiatement par vos clients à la commande.'
-                            : 'Aucun code promotionnel actuellement en vigueur.'}
+                          {promoCodes.filter(p => p.isValidated !== false && p.isActive !== false).length} validé(s) et actif(s) en caisse.
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {promoCodes.length > 0 && onValidateAllPromoCodes && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onValidateAllPromoCodes();
+                              setPromoFeedback(`Tous les codes promos ont été validés avec succès !`);
+                              setTimeout(() => setPromoFeedback(null), 5000);
+                            }}
+                            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                            title="Valider tous les codes promo en attente"
+                          >
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Tout Valider ({promoCodes.length})</span>
+                          </button>
+                        )}
+
                         {promoCodes.length > 0 && onDeleteAllPromoCodes && (
                           <button
                             type="button"
@@ -2855,11 +2963,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                                 setTimeout(() => setPromoFeedback(null), 5000);
                               }
                             }}
-                            className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                            className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
                             title="Supprimer tous les codes promo (remettre à zéro)"
                           >
                             <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                            <span>Supprimer tous les codes promo ({promoCodes.length})</span>
+                            <span>Supprimer tout</span>
                           </button>
                         )}
 
@@ -2871,7 +2979,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                               setPromoFeedback(`Codes promotionnels de démonstration restaurés avec succès.`);
                               setTimeout(() => setPromoFeedback(null), 5000);
                             }}
-                            className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                            className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
                           >
                             <RotateCcw className="w-3.5 h-3.5 text-gray-600" />
                             <span>Restaurer codes par défaut</span>
@@ -2885,38 +2993,128 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         <div className="w-12 h-12 mx-auto rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
                           <Tag className="w-6 h-6" />
                         </div>
-                        <h4 className="text-sm font-bold text-gray-800">Aucun code promo actif (0 promotion)</h4>
+                        <h4 className="text-sm font-bold text-gray-800">Aucun code promotionnel défini</h4>
                         <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                          Les promotions sont remises à zéro. Vous pouvez créer un nouveau code promotionnel ci-dessus à tout moment.
+                          Définissez vos codes promo ci-dessus pour offrir des réductions immédiates à vos clients au Sénégal.
                         </p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {promoCodes.map((p, idx) => (
-                          <div key={idx} className="p-4 bg-white rounded-2xl border border-gray-200 shadow-xs flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono font-black text-sm text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">
-                                  {p.code}
-                                </span>
-                                <span className="font-extrabold text-xs text-gray-900">
-                                  -{p.discountPercent}%
-                                </span>
-                              </div>
-                              <p className="text-xs text-gray-500 mt-1 truncate">{p.description}</p>
-                            </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                        {promoCodes.map((p, idx) => {
+                          const isValidated = p.isValidated !== false;
+                          const isActive = p.isActive !== false;
 
-                            {onDeletePromoCode && (
-                              <button
-                                onClick={() => onDeletePromoCode(p.code)}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                                title="Supprimer"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                          return (
+                            <div 
+                              key={p.code || idx} 
+                              className={`p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between gap-3 shadow-xs ${
+                                isValidated && isActive 
+                                  ? 'bg-white border-emerald-200 ring-1 ring-emerald-100' 
+                                  : !isValidated 
+                                  ? 'bg-amber-50/40 border-amber-300' 
+                                  : 'bg-gray-50 border-gray-200 opacity-80'
+                              }`}
+                            >
+                              <div className="space-y-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-black text-sm text-red-600 bg-red-50 px-2 py-0.5 rounded-md border border-red-200 tracking-wider">
+                                      {p.code}
+                                    </span>
+                                    <span className="font-black text-xs text-gray-950">
+                                      -{p.discountPercent}%
+                                    </span>
+                                  </div>
+
+                                  {onDeletePromoCode && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (confirm(`Supprimer définitivement le code promo « ${p.code} » ?`)) {
+                                          onDeletePromoCode(p.code);
+                                        }
+                                      }}
+                                      className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                                      title="Supprimer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+
+                                <p className="text-xs text-gray-600 leading-snug">{p.description}</p>
+
+                                {/* Badges */}
+                                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                  {isValidated ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      Validé par l'Admin
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">
+                                      <AlertCircle className="w-3 h-3 text-amber-600" />
+                                      En attente de validation
+                                    </span>
+                                  )}
+
+                                  {isActive ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-800 bg-blue-100/70 px-2 py-0.5 rounded-md">
+                                      Actif en caisse
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-600 bg-gray-200 px-2 py-0.5 rounded-md">
+                                      Désactivé
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Interactive Admin Controls */}
+                              <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+                                {onValidatePromoCode && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onValidatePromoCode(p.code, !isValidated)}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
+                                      isValidated
+                                        ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                                    }`}
+                                    title={isValidated ? "Mettre en attente (les clients ne pourront plus l'utiliser)" : "Valider le code (autoriser l'utilisation)"}
+                                  >
+                                    {isValidated ? (
+                                      <>
+                                        <AlertCircle className="w-3 h-3 text-amber-600" />
+                                        <span>Mettre en attente</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Check className="w-3 h-3" />
+                                        <span>Valider le code</span>
+                                      </>
+                                    )}
+                                  </button>
+                                )}
+
+                                {onTogglePromoStatus && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onTogglePromoStatus(p.code, !isActive)}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                      isActive
+                                        ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
+                                    }`}
+                                    title={isActive ? "Désactiver temporairement" : "Réactiver le code"}
+                                  >
+                                    {isActive ? 'Désactiver' : 'Activer'}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -3821,8 +4019,432 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
                   <form onSubmit={handleSaveSettings} className="space-y-6">
                     
+                    {/* SECTION 0.A: BANDE PASSANTE PROMOTIONNELLE DÉFILANTE (BANDEAU D'ANNONCE EN DIRECT) */}
+                    <div className="p-5 bg-gradient-to-br from-amber-50/70 via-red-50/40 to-white border-2 border-red-200 rounded-3xl shadow-sm space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-red-100">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                            <Flame className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm text-gray-900">
+                              Bande Passante Promotionnelle Défilante (Bandeau d'Annonce)
+                            </h4>
+                            <p className="text-xs text-gray-600">
+                              Affichez une bannière défilante en direct en haut du site lors du lancement de promotions, soldes ou événements au Sénégal.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Toggle Switch */}
+                        <label className="inline-flex items-center gap-2.5 cursor-pointer bg-white px-3.5 py-2 rounded-xl border border-gray-200 shadow-2xs select-none">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(storeSettings.enablePromoBanner)}
+                            onChange={(e) => setStoreSettings({ ...storeSettings, enablePromoBanner: e.target.checked })}
+                            className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 cursor-pointer"
+                          />
+                          <span className="text-xs font-black text-gray-900">
+                            {storeSettings.enablePromoBanner ? "🟢 Bande passante active" : "⚪ Bande passante masquée"}
+                          </span>
+                        </label>
+                      </div>
+
+                      {/* Live Preview of the Banner */}
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-bold text-gray-700 flex items-center gap-1">
+                          <Eye className="w-3.5 h-3.5 text-gray-500" />
+                          Aperçu direct tel que vu par les visiteurs du site :
+                        </span>
+                        <div className="rounded-xl overflow-hidden border border-gray-200 shadow-2xs">
+                          <PromoAnnouncementBanner settings={storeSettings} />
+                        </div>
+                      </div>
+
+                      {/* Quick Campaign Templates */}
+                      <div className="space-y-1.5 pt-1">
+                        <span className="block text-xs font-bold text-gray-800">
+                          Modèles express de campagnes au Sénégal (cliquez pour appliquer) :
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => setStoreSettings({
+                              ...storeSettings,
+                              enablePromoBanner: true,
+                              promoBannerBadge: "VENTE FLASH",
+                              promoBannerBgColor: "red",
+                              promoBannerText: "⚡ VENTE FLASH EXCLUSIVE DAKAR : Jusqu'à -25% sur les télés, audio et smartphones avec le code GAAW15 • Livraison express 2h !",
+                              promoBannerButtonText: "Profiter de l'offre",
+                              promoBannerSpeed: "marquee"
+                            })}
+                            className="p-2.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-800 rounded-xl font-bold text-left transition cursor-pointer"
+                          >
+                            🔥 Vente Flash High-Tech
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setStoreSettings({
+                              ...storeSettings,
+                              enablePromoBanner: true,
+                              promoBannerBadge: "RAMADAN",
+                              promoBannerBgColor: "emerald",
+                              promoBannerText: "🌙 SPÉCIAL RAMADAN : Réductions exceptionnelles sur les robots mixeurs, congélateurs et électroménager avec le code RAMADAN25 !",
+                              promoBannerButtonText: "Voir les promos",
+                              promoBannerSpeed: "marquee"
+                            })}
+                            className="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-xl font-bold text-left transition cursor-pointer"
+                          >
+                            🌙 Spécial Ramadan
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setStoreSettings({
+                              ...storeSettings,
+                              enablePromoBanner: true,
+                              promoBannerBadge: "TABASKI",
+                              promoBannerBgColor: "gold",
+                              promoBannerText: "🐑 OFFRE SPÉCIALE TABASKI : Les plus bas prix du Sénégal sur les réfrigérateurs, congélateurs et sono avec le code TABASKI2026 !",
+                              promoBannerButtonText: "Commander vite",
+                              promoBannerSpeed: "marquee"
+                            })}
+                            className="p-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 rounded-xl font-bold text-left transition cursor-pointer"
+                          >
+                            🐑 Grandes Promos Tabaski
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setStoreSettings({
+                              ...storeSettings,
+                              enablePromoBanner: true,
+                              promoBannerBadge: "LIVRAISON GRATUITE",
+                              promoBannerBgColor: "dark",
+                              promoBannerText: "🚚 DAKAR EXPRESS : Livraison 100% offerte dès 50.000 FCFA d'achats dans tout Dakar • Paiement Wave, OM ou à la réception !",
+                              promoBannerButtonText: "J'en profite",
+                              promoBannerSpeed: "marquee"
+                            })}
+                            className="p-2.5 bg-gray-900 hover:bg-gray-800 text-amber-300 rounded-xl font-bold text-left transition cursor-pointer"
+                          >
+                            🚚 Livraison Offerte Dakar
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Custom Announcement Text */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                          Texte personnalisé de la bande passante *
+                        </label>
+                        <textarea
+                          rows={2}
+                          required
+                          value={storeSettings.promoBannerText || ''}
+                          onChange={(e) => setStoreSettings({ ...storeSettings, promoBannerText: e.target.value })}
+                          placeholder="ex: 🔥 GRANDES PROMOTIONS : Jusqu'à -20% avec nos codes promos validés ! • Livraison express 2h sur Dakar..."
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-red-600"
+                        />
+                      </div>
+
+                      {/* Badges, Themes and Animation Controls */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
+                        <div>
+                          <label className="block font-bold text-gray-700 mb-1">
+                            Badge d'accroche (ex: VENTE FLASH)
+                          </label>
+                          <input
+                            type="text"
+                            value={storeSettings.promoBannerBadge || ''}
+                            onChange={(e) => setStoreSettings({ ...storeSettings, promoBannerBadge: e.target.value })}
+                            placeholder="VENTE FLASH, TABASKI..."
+                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl font-bold text-xs uppercase"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-gray-700 mb-1">
+                            Couleur / Thème visuel
+                          </label>
+                          <select
+                            value={storeSettings.promoBannerBgColor || 'red'}
+                            onChange={(e) => setStoreSettings({ ...storeSettings, promoBannerBgColor: e.target.value as any })}
+                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl font-medium text-xs"
+                          >
+                            <option value="red">🔴 Rouge Vibrant (Diayma Gaaw)</option>
+                            <option value="gold">🟡 Or Festif (Tabaski & Fêtes)</option>
+                            <option value="emerald">🟢 Vert Émeraude (Ramadan)</option>
+                            <option value="dark">⚫ Noir & Or Luxe</option>
+                            <option value="blue">🔵 Bleu Électrique</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-gray-700 mb-1">
+                            Mode d'animation
+                          </label>
+                          <select
+                            value={storeSettings.promoBannerSpeed || 'marquee'}
+                            onChange={(e) => setStoreSettings({ ...storeSettings, promoBannerSpeed: e.target.value as any })}
+                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl font-medium text-xs"
+                          >
+                            <option value="marquee">Défilement continu fluide (Marquee)</option>
+                            <option value="static">Message fixe centré avec icône</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+                        <div>
+                          <label className="block font-bold text-gray-700 mb-1">
+                            Libellé du bouton d'action
+                          </label>
+                          <input
+                            type="text"
+                            value={storeSettings.promoBannerButtonText || ''}
+                            onChange={(e) => setStoreSettings({ ...storeSettings, promoBannerButtonText: e.target.value })}
+                            placeholder="Profiter des promos, Voir les offres..."
+                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-medium"
+                          />
+                        </div>
+
+                        <div className="flex items-end">
+                          <p className="text-[11px] text-gray-500 leading-snug">
+                            💡 En cliquant sur le bandeau ou son bouton, les clients sont automatiquement dirigés vers les promotions du catalogue.
+                          </p>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* SECTION 0.B: PERSONNALISATION VISUELLE (REMPLACEMENT DES LOGOS ET FAVICONS) */}
+                    <div className="p-5 bg-white border border-gray-200 rounded-3xl shadow-2xs space-y-5">
+                      <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-gray-900 text-white flex items-center justify-center shrink-0 shadow-xs">
+                            <ImageIcon className="w-4 h-4 text-red-500" />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm text-gray-900">
+                              Logos & Favicons Officiels de la Boutique
+                            </h4>
+                            <p className="text-xs text-gray-500">
+                              Remplacez le logo principal et l'icône de l'onglet du navigateur en quelques clics.
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                          Mise à jour instantanée
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        {/* 1. Remplacement du Logo */}
+                        <div className="p-4 bg-gray-50/80 border border-gray-200 rounded-2xl space-y-3.5">
+                          <div className="flex items-center justify-between">
+                            <label className="font-extrabold text-xs text-gray-900">
+                              Logo de la Boutique (En-tête & Pied de page)
+                            </label>
+                            {storeSettings.customLogoUrl ? (
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                Logo personnalisé actif
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium text-gray-500">
+                                Logo DIAYMA GAAW par défaut
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Logo Preview */}
+                          <div className="p-4 bg-white rounded-xl border border-gray-200 flex flex-col items-center justify-center min-h-[110px] text-center gap-2 shadow-2xs">
+                            <BrandLogo size="md" customLogoUrl={storeSettings.customLogoUrl} />
+                            <span className="text-[10px] text-gray-400">
+                              {storeSettings.customLogoUrl 
+                                ? "Aperçu de votre logo personnalisé" 
+                                : "Aperçu du logo officiel DIAYMA GAAW"}
+                            </span>
+                          </div>
+
+                          {/* Upload button & URL input */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl cursor-pointer transition shadow-xs">
+                                {logoUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
+                                <span>{logoUploading ? "Téléversement..." : "Téléverser un nouveau logo"}</span>
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  className="hidden" 
+                                  onChange={handleLogoUpload} 
+                                  disabled={logoUploading} 
+                                />
+                              </label>
+
+                              {storeSettings.customLogoUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = { ...storeSettings, customLogoUrl: undefined };
+                                    setStoreSettings(updated);
+                                    if (onUpdateSettings) onUpdateSettings(updated);
+                                    try {
+                                      localStorage.setItem('dg_store_settings', JSON.stringify(updated));
+                                    } catch {
+                                      // ignore
+                                    }
+                                  }}
+                                  className="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                                  title="Rétablir le logo officiel d'origine"
+                                >
+                                  Rétablir
+                                </button>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                                Ou coller l'URL directe d'une image de logo :
+                              </label>
+                              <input
+                                type="url"
+                                value={storeSettings.customLogoUrl || ''}
+                                onChange={(e) => setStoreSettings({ ...storeSettings, customLogoUrl: e.target.value.trim() || undefined })}
+                                placeholder="https://.../mon-nouveau-logo.png"
+                                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-600 font-medium"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 2. Remplacement du Favicon */}
+                        <div className="p-4 bg-gray-50/80 border border-gray-200 rounded-2xl space-y-3.5">
+                          <div className="flex items-center justify-between">
+                            <label className="font-extrabold text-xs text-gray-900">
+                              Favicon (Icône de l'onglet du navigateur)
+                            </label>
+                            {(storeSettings.customFaviconUrl || storeSettings.faviconEmoji) ? (
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                Favicon personnalisé actif
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium text-gray-500">
+                                Favicon par défaut
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Browser Tab Mockup Simulation */}
+                          <div className="p-3 bg-white rounded-xl border border-gray-200 space-y-1.5 shadow-2xs">
+                            <span className="text-[10px] text-gray-400 block font-semibold">
+                              Simulation de l'onglet dans Google Chrome / Safari :
+                            </span>
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-t-lg border border-b-0 border-gray-300 shadow-2xs max-w-full">
+                              {storeSettings.customFaviconUrl ? (
+                                <img src={storeSettings.customFaviconUrl} alt="Favicon" className="w-4 h-4 object-contain rounded-xs shrink-0" />
+                              ) : storeSettings.faviconEmoji ? (
+                                <span className="text-sm leading-none shrink-0">{storeSettings.faviconEmoji}</span>
+                              ) : (
+                                <img src="/logo.jpg" alt="Favicon par défaut" className="w-4 h-4 object-contain rounded-xs shrink-0" />
+                              )}
+                              <span className="text-xs font-semibold text-gray-800 truncate max-w-[140px]">
+                                {storeSettings.storeName}
+                              </span>
+                              <X className="w-3 h-3 text-gray-400 shrink-0" />
+                            </div>
+                          </div>
+
+                          {/* Upload button & Quick Emoji Selector */}
+                          <div className="space-y-2.5">
+                            <div className="flex items-center gap-2">
+                              <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs rounded-xl cursor-pointer transition shadow-xs">
+                                {faviconUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
+                                <span>{faviconUploading ? "Téléversement..." : "Téléverser un favicon (ICO, PNG)"}</span>
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  className="hidden" 
+                                  onChange={handleFaviconUpload} 
+                                  disabled={faviconUploading} 
+                                />
+                              </label>
+
+                              {(storeSettings.customFaviconUrl || storeSettings.faviconEmoji) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = { ...storeSettings, customFaviconUrl: undefined, faviconEmoji: undefined };
+                                    setStoreSettings(updated);
+                                    if (onUpdateSettings) onUpdateSettings(updated);
+                                    try {
+                                      localStorage.setItem('dg_store_settings', JSON.stringify(updated));
+                                    } catch {
+                                      // ignore
+                                    }
+                                  }}
+                                  className="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                                  title="Rétablir le favicon d'origine"
+                                >
+                                  Rétablir
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Quick Emoji Buttons */}
+                            <div>
+                              <span className="block text-[11px] font-semibold text-gray-600 mb-1">
+                                Ou choisir un émoji rapide comme favicon :
+                              </span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {['⚡', '🛍️', '🎁', '🏷️', '📻', '🛒', '🔥', '🇸🇳'].map(emoji => (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = { ...storeSettings, faviconEmoji: emoji, customFaviconUrl: undefined };
+                                      setStoreSettings(updated);
+                                      if (onUpdateSettings) onUpdateSettings(updated);
+                                      try {
+                                        localStorage.setItem('dg_store_settings', JSON.stringify(updated));
+                                      } catch {
+                                        // ignore
+                                      }
+                                    }}
+                                    className={`w-8 h-8 rounded-lg border text-sm flex items-center justify-center transition cursor-pointer ${
+                                      storeSettings.faviconEmoji === emoji 
+                                        ? 'border-red-600 bg-red-50 ring-2 ring-red-400' 
+                                        : 'border-gray-200 bg-white hover:bg-gray-100'
+                                    }`}
+                                    title={`Définir l'émoji ${emoji} comme favicon`}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                                Ou coller l'URL directe d'une icône favicon :
+                              </label>
+                              <input
+                                type="url"
+                                value={storeSettings.customFaviconUrl || ''}
+                                onChange={(e) => setStoreSettings({ ...storeSettings, customFaviconUrl: e.target.value.trim() || undefined, faviconEmoji: undefined })}
+                                placeholder="https://.../favicon.png"
+                                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-600 font-medium"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+
                     {/* 1. Store Identity */}
-                    <div className="p-5 bg-white border border-gray-200 rounded-2xl shadow-2xs space-y-4">
+                    <div className="p-5 bg-white border border-gray-200 rounded-3xl shadow-2xs space-y-4">
                       <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
                         <Globe className="w-4 h-4 text-red-600" />
                         <h4 className="font-bold text-xs uppercase tracking-wider text-gray-800">

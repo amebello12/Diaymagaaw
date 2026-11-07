@@ -72,6 +72,7 @@ import { AdminPanelModal } from './components/AdminPanelModal';
 import { ShopifyExportModal } from './components/ShopifyExportModal';
 import { FloatingWhatsApp } from './components/FloatingWhatsApp';
 import { WelcomePopup } from './components/WelcomePopup';
+import { BrandPartners } from './components/BrandPartners';
 import { Footer } from './components/Footer';
 
 export default function App() {
@@ -219,6 +220,29 @@ export default function App() {
     }
   });
 
+  // Mise à jour dynamique du Favicon du navigateur (icône d'onglet en direct)
+  useEffect(() => {
+    try {
+      let faviconLink = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
+      if (!faviconLink) {
+        faviconLink = document.createElement('link');
+        faviconLink.rel = 'icon';
+        document.head.appendChild(faviconLink);
+      }
+
+      if (storeSettings.customFaviconUrl && storeSettings.customFaviconUrl.trim()) {
+        faviconLink.href = storeSettings.customFaviconUrl.trim();
+      } else if (storeSettings.faviconEmoji && storeSettings.faviconEmoji.trim()) {
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${storeSettings.faviconEmoji.trim()}</text></svg>`;
+        faviconLink.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+      } else {
+        faviconLink.href = '/logo.jpg';
+      }
+    } catch {
+      // ignore
+    }
+  }, [storeSettings.customFaviconUrl, storeSettings.faviconEmoji]);
+
   // Statistiques de Fréquentation & Visiteurs du Site
   const [visitorStats, setVisitorStats] = useState<VisitorStats>(() => getVisitorStats());
 
@@ -233,32 +257,41 @@ export default function App() {
       if (time) setLastSyncDate(time);
     });
 
-    // Synchronisation en temps réel des articles du catalogue
+    // Synchronisation en temps réel des articles du catalogue (fusion résiliente pour garantir la persistance des nouveaux ajouts)
     const unsubProducts = subscribeToProducts((cloudProducts) => {
-      if (cloudProducts !== undefined) {
-        const seenIds = new Set<string>();
-        const uniqueProds: Product[] = [];
-        for (const p of cloudProducts) {
-          if (!p || !p.id || seenIds.has(p.id)) continue;
-          seenIds.add(p.id);
-          const category = p.category === 'tv-home-cinema' 
-            ? 'tv-audio' 
-            : p.category === 'maison' 
-            ? 'electromenager' 
-            : p.category;
-          uniqueProds.push({ ...p, category });
-        }
-        setProducts(uniqueProds);
-        try {
-          localStorage.setItem('dg_products', JSON.stringify(uniqueProds));
-          if (uniqueProds.length === 0) {
-            localStorage.setItem('dg_catalog_cleared', 'true');
-          } else {
-            localStorage.removeItem('dg_catalog_cleared');
+      if (cloudProducts !== undefined && Array.isArray(cloudProducts)) {
+        setProducts(prevProducts => {
+          const incomingIds = new Set(cloudProducts.map(p => p.id));
+          // Conserver les articles récemment ajoutés localement s'ils n'ont pas encore été renvoyés par la requête polling
+          const pendingLocals = prevProducts.filter(p => !incomingIds.has(p.id) && p.id.startsWith('prod-'));
+          const merged = [...pendingLocals, ...cloudProducts];
+          
+          const seenIds = new Set<string>();
+          const uniqueProds: Product[] = [];
+          for (const p of merged) {
+            if (!p || !p.id || seenIds.has(p.id)) continue;
+            seenIds.add(p.id);
+            const category = p.category === 'tv-home-cinema' 
+              ? 'tv-audio' 
+              : p.category === 'maison' 
+              ? 'electromenager' 
+              : p.category;
+            uniqueProds.push({ ...p, category });
           }
-        } catch {
-          // ignore
-        }
+
+          try {
+            localStorage.setItem('dg_products', JSON.stringify(uniqueProds));
+            if (uniqueProds.length === 0) {
+              localStorage.setItem('dg_catalog_cleared', 'true');
+            } else {
+              localStorage.removeItem('dg_catalog_cleared');
+            }
+          } catch {
+            // ignore
+          }
+
+          return uniqueProds;
+        });
       }
     }, INITIAL_PRODUCTS);
 
@@ -609,6 +642,7 @@ export default function App() {
       const updated = [newProd, ...prev.filter(p => p.id !== newProd.id)];
       try {
         localStorage.setItem('dg_products', JSON.stringify(updated));
+        localStorage.removeItem('dg_catalog_cleared');
       } catch {
         // ignore
       }
@@ -1201,6 +1235,9 @@ export default function App() {
         )}
 
       </main>
+
+      {/* 2.5. Sponsor Icons & Brand Partners Banner (JBL, Samsung, Sony, Ahuja, Behringer, Astech, Sharp, Shure) */}
+      <BrandPartners onSelectBrand={handleSearchSubmit} />
 
       {/* 3. Global Footer */}
       <Footer

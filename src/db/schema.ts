@@ -4,7 +4,7 @@ import { pgTable, text, integer, boolean, timestamp, jsonb, real } from 'drizzle
 export const products = pgTable('products', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
-  slug: text('slug').notNull().unique(),
+  slug: text('slug').notNull(),
   category: text('category').notNull(),
   price: integer('price').notNull(),
   originalPrice: integer('original_price'),

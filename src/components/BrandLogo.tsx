@@ -7,6 +7,7 @@ interface BrandLogoProps {
   className?: string;
   showSlogan?: boolean;
   isDark?: boolean;
+  customLogoUrl?: string;
 }
 
 export const BrandLogo: React.FC<BrandLogoProps> = ({
@@ -14,8 +15,10 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   variant = 'full',
   className = '',
   showSlogan = true,
-  isDark = false
+  isDark = false,
+  customLogoUrl
 }) => {
+  const logoSrc = customLogoUrl && customLogoUrl.trim() ? customLogoUrl.trim() : diaymaLogo;
   // Height presets for the official logo image
   const sizeClasses = {
     sm: 'h-10 sm:h-12',
@@ -29,7 +32,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
       <div className={`inline-flex items-center gap-2 ${className}`}>
         <div className="relative overflow-hidden rounded-xl bg-white shadow-sm border border-gray-100 p-0.5">
           <img
-            src={diaymaLogo}
+            src={logoSrc}
             alt="Diayma Gaaw - Vends-moi vite !"
             referrerPolicy="no-referrer"
             className="h-9 w-auto object-contain"
@@ -43,7 +46,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
     <div className={`inline-flex items-center gap-2 select-none ${className}`}>
       <div className="relative flex items-center">
         <img
-          src={diaymaLogo}
+          src={logoSrc}
           alt="Diayma Gaaw - Vends-Moi Vite !"
           referrerPolicy="no-referrer"
           className={`${sizeClasses[size]} w-auto object-contain rounded-lg transition-transform duration-300 group-hover:scale-105`}
