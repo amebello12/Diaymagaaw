@@ -57,6 +57,9 @@ async function startServer() {
   // Products
   app.get('/api/products', async (_req: Request, res: Response) => {
     try {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       const data = await getProducts();
       res.json(data);
     } catch (error) {
@@ -231,6 +234,9 @@ async function startServer() {
   // Store Settings
   app.get('/api/settings', async (_req: Request, res: Response) => {
     try {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       const data = await getStoreSettings();
       res.json(data);
     } catch (error) {

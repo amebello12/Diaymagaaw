@@ -12,7 +12,7 @@ import {
   Sparkles,
   Tag
 } from 'lucide-react';
-import { Product } from '../types';
+import { Product, StoreSettings } from '../types';
 import { formatFCFA } from '../utils/currency';
 import { ActiveFlame } from './ActiveFlame';
 
@@ -23,6 +23,7 @@ interface FlashSaleSectionProps {
   onBuyNow?: (product: Product, e?: React.MouseEvent) => void;
   onViewPromotions?: () => void;
   onViewAllPromos?: () => void;
+  settings?: StoreSettings;
 }
 
 export const FlashSaleSection: React.FC<FlashSaleSectionProps> = ({
@@ -31,9 +32,14 @@ export const FlashSaleSection: React.FC<FlashSaleSectionProps> = ({
   onAddToCart,
   onBuyNow,
   onViewPromotions,
-  onViewAllPromos
+  onViewAllPromos,
+  settings
 }) => {
   const handlePromos = onViewAllPromos || onViewPromotions || (() => {});
+  const config = settings?.homepageConfig;
+  const sectionTitle = config?.sectionTitles?.flashSaleTitle || 'PROMO SÉNÉGAL : OFFRES FLASH';
+  const sectionSubtitle = config?.sectionTitles?.flashSaleSubtitle || 'Faites défiler le diaporama des meilleures remises au Sénégal. Articles neufs avec garantie, en stock à Dakar et expédiés rapidement partout dans le pays.';
+  const buyBtnText = config?.cardBuyButtonText ? `COMMANDER (${config.cardBuyButtonText.toUpperCase()})` : 'COMMANDER EN PROMO';
 
   // Compte à rebours 12h
   const [timeLeft, setTimeLeft] = useState({
@@ -155,13 +161,13 @@ export const FlashSaleSection: React.FC<FlashSaleSectionProps> = ({
             <div className="flex items-center gap-3">
               <ActiveFlame size="lg" className="shrink-0" />
               <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight font-display text-white drop-shadow-md">
-                PROMO SÉNÉGAL : OFFRES FLASH
+                {sectionTitle}
               </h2>
               <ActiveFlame size="lg" className="shrink-0 hidden sm:inline-flex" />
             </div>
 
             <p className="text-gray-300 text-xs sm:text-base mt-2 max-w-xl">
-              Faites défiler le diaporama des meilleures remises au Sénégal. Articles neufs avec garantie, en stock à Dakar et expédiés rapidement partout dans le pays.
+              {sectionSubtitle}
             </p>
           </div>
 
@@ -373,7 +379,7 @@ export const FlashSaleSection: React.FC<FlashSaleSectionProps> = ({
                             className="w-full py-2.5 bg-gradient-to-r from-red-600 via-orange-600 to-red-600 hover:from-red-700 hover:to-orange-700 active:scale-95 text-white text-xs font-black rounded-xl transition flex items-center justify-center gap-1.5 shadow-lg shadow-red-600/30 cursor-pointer"
                           >
                             <ActiveFlame size="xs" glow={false} />
-                            <span>COMMANDER EN PROMO</span>
+                            <span>{buyBtnText}</span>
                           </button>
 
                           {onAddToCart && (

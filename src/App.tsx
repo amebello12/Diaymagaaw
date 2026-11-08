@@ -58,6 +58,7 @@ import { HeroBanner } from './components/HeroBanner';
 import { CategoryGrid } from './components/CategoryGrid';
 import { FlashSaleSection } from './components/FlashSaleSection';
 import { FeaturedProducts } from './components/FeaturedProducts';
+import { AllProductsHomeSection } from './components/AllProductsHomeSection';
 import { ReviewsSection } from './components/ReviewsSection';
 import { TrustBadges } from './components/TrustBadges';
 import { ProductDetailModal } from './components/ProductDetailModal';
@@ -1077,58 +1078,122 @@ export default function App() {
       <main className="flex-1">
         
         {/* VIEW: HOME */}
-        {activeView === 'home' && (
-          <div className="space-y-4">
-            {/* Hero Main Banner */}
-            <HeroBanner
-              onShopNow={() => handleNavigate('shop', null)}
-              onOpenPromos={() => handleNavigate('shop', 'promotions')}
-              onOpenExportShopify={() => setShopifyExportOpen(true)}
-              featuredProduct={products.find(p => (p.discountPercent && p.discountPercent > 0) || p.isFlashSale) || products[0]}
-              products={products}
-              onSelectProduct={setSelectedProduct}
-            />
+        {activeView === 'home' && (() => {
+          const defaultOrder = [
+            'heroBanner',
+            'categoryGrid',
+            'flashSale',
+            'featuredProducts',
+            'allProductsCatalog',
+            'reviews',
+            'brandPartners',
+            'trustBadges'
+          ];
+          const sectionOrder = storeSettings.homepageConfig?.sectionOrder || defaultOrder;
+          const vis = storeSettings.homepageConfig?.sectionsVisibility || {};
 
-            {/* Visual Category Grid */}
-            <CategoryGrid
-              categories={categoriesWithCounts}
-              products={products}
-              onSelectCategory={(slug) => handleNavigate('shop', slug)}
-            />
+          const renderSection = (key: string) => {
+            if ((vis as any)[key] === false) return null;
 
-            {/* Flash Sales Section with Senegal Wave/Orange money notice */}
-            <FlashSaleSection
-              products={products}
-              onSelectProduct={setSelectedProduct}
-              onAddToCart={handleAddToCart}
-              onBuyNow={handleBuyNow}
-              onViewAllPromos={() => handleNavigate('shop', 'promotions')}
-            />
+            switch (key) {
+              case 'heroBanner':
+                return (
+                  <HeroBanner
+                    key="sec-heroBanner"
+                    onShopNow={() => handleNavigate('shop', null)}
+                    onOpenPromos={() => handleNavigate('shop', 'promotions')}
+                    onOpenExportShopify={() => setShopifyExportOpen(true)}
+                    featuredProduct={products.find(p => (p.discountPercent && p.discountPercent > 0) || p.isFlashSale) || products[0]}
+                    products={products}
+                    onSelectProduct={setSelectedProduct}
+                    settings={storeSettings}
+                  />
+                );
+              case 'categoryGrid':
+                return (
+                  <CategoryGrid
+                    key="sec-categoryGrid"
+                    categories={categoriesWithCounts}
+                    products={products}
+                    onSelectCategory={(slug) => handleNavigate('shop', slug)}
+                    settings={storeSettings}
+                  />
+                );
+              case 'flashSale':
+                return (
+                  <FlashSaleSection
+                    key="sec-flashSale"
+                    products={products}
+                    onSelectProduct={setSelectedProduct}
+                    onAddToCart={handleAddToCart}
+                    onBuyNow={handleBuyNow}
+                    onViewAllPromos={() => handleNavigate('shop', 'promotions')}
+                    settings={storeSettings}
+                  />
+                );
+              case 'featuredProducts':
+                return (
+                  <FeaturedProducts
+                    key="sec-featuredProducts"
+                    products={products}
+                    categories={categoriesWithCounts}
+                    onSelectProduct={setSelectedProduct}
+                    onAddToCart={handleAddToCart}
+                    onBuyNow={handleBuyNow}
+                    onViewCatalog={() => handleNavigate('shop', null)}
+                    settings={storeSettings}
+                  />
+                );
+              case 'allProductsCatalog':
+                return (
+                  <AllProductsHomeSection
+                    key="sec-allProductsCatalog"
+                    products={products}
+                    categories={categoriesWithCounts}
+                    onSelectProduct={setSelectedProduct}
+                    onAddToCart={handleAddToCart}
+                    onBuyNow={handleBuyNow}
+                    onViewCatalog={() => handleNavigate('shop', null)}
+                    settings={storeSettings}
+                  />
+                );
+              case 'reviews':
+                return (
+                  <ReviewsSection
+                    key="sec-reviews"
+                    reviews={reviews}
+                    products={products}
+                    onAddReview={handleAddReview}
+                    onSelectProduct={setSelectedProduct}
+                    onNavigate={handleNavigate}
+                  />
+                );
+              case 'brandPartners':
+                return (
+                  <BrandPartners
+                    key="sec-brandPartners"
+                    onSelectBrand={handleSearchSubmit}
+                    settings={storeSettings}
+                  />
+                );
+              case 'trustBadges':
+                return (
+                  <TrustBadges
+                    key="sec-trustBadges"
+                    onNavigate={handleNavigate}
+                  />
+                );
+              default:
+                return null;
+            }
+          };
 
-            {/* Featured Best Sellers & Filterable Catalog Preview */}
-            <FeaturedProducts
-              products={products}
-              categories={categoriesWithCounts}
-              onSelectProduct={setSelectedProduct}
-              onAddToCart={handleAddToCart}
-              onBuyNow={handleBuyNow}
-              onViewCatalog={() => handleNavigate('shop', null)}
-              settings={storeSettings}
-            />
-
-            {/* Customer Reviews & Testimonials Section */}
-            <ReviewsSection
-              reviews={reviews}
-              products={products}
-              onAddReview={handleAddReview}
-              onSelectProduct={setSelectedProduct}
-              onNavigate={handleNavigate}
-            />
-
-            {/* Trust Badges: Payment, Delivery, Guarantees */}
-            <TrustBadges onNavigate={handleNavigate} />
-          </div>
-        )}
+          return (
+            <div className="space-y-4">
+              {sectionOrder.map((secKey) => renderSection(secKey))}
+            </div>
+          );
+        })()}
 
         {/* VIEW: REVIEWS / AVIS CLIENTS */}
         {activeView === 'reviews' && (
@@ -1237,7 +1302,7 @@ export default function App() {
       </main>
 
       {/* 2.5. Sponsor Icons & Brand Partners Banner (JBL, Samsung, Sony, Ahuja, Behringer, Astech, Sharp, Shure) */}
-      <BrandPartners onSelectBrand={handleSearchSubmit} />
+      {activeView !== 'home' && <BrandPartners onSelectBrand={handleSearchSubmit} settings={storeSettings} />}
 
       {/* 3. Global Footer */}
       <Footer

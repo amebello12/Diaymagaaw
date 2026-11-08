@@ -1,8 +1,10 @@
 import React from 'react';
 import { ShieldCheck, Award, CheckCircle2, Headphones, Sparkles, ArrowRight } from 'lucide-react';
+import { StoreSettings } from '../types';
 
 interface BrandPartnersProps {
   onSelectBrand?: (brandName: string) => void;
+  settings?: StoreSettings;
 }
 
 interface SponsorBrand {
@@ -13,7 +15,9 @@ interface SponsorBrand {
   description: string;
 }
 
-export const BrandPartners: React.FC<BrandPartnersProps> = ({ onSelectBrand }) => {
+export const BrandPartners: React.FC<BrandPartnersProps> = ({ onSelectBrand, settings }) => {
+  const config = settings?.homepageConfig;
+  const sectionTitle = config?.sectionTitles?.brandPartnersTitle || 'Grandes Marques & Partenaires Officiels';
   const brands: SponsorBrand[] = [
     {
       name: 'JBL',
@@ -143,7 +147,7 @@ export const BrandPartners: React.FC<BrandPartnersProps> = ({ onSelectBrand }) =
         <div className="text-center max-w-2xl mx-auto space-y-2.5">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-700 text-xs font-bold rounded-full border border-red-100">
             <Award className="w-3.5 h-3.5 text-red-600" />
-            <span>Grandes Marques & Partenaires Officiels</span>
+            <span>{sectionTitle}</span>
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-gray-900 font-display">
             Matériel Audio, Électroménager & Téléphonie Certifié

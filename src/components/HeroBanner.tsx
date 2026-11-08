@@ -3,6 +3,9 @@ import { ShieldCheck, Truck, Clock, ArrowRight, Flame, Sparkles } from 'lucide-r
 import { Product } from '../types';
 import { formatFCFA } from '../utils/currency';
 
+import { StoreSettings } from '../types';
+import { cleanPhoneForWhatsApp } from '../utils/currency';
+
 interface HeroBannerProps {
   onShopNow: () => void;
   onViewPromotions?: () => void;
@@ -11,6 +14,7 @@ interface HeroBannerProps {
   featuredProduct?: Product;
   products?: Product[];
   onSelectProduct?: (product: Product) => void;
+  settings?: StoreSettings;
 }
 
 export const HeroBanner: React.FC<HeroBannerProps> = ({ 
@@ -20,9 +24,56 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   onOpenExportShopify,
   featuredProduct,
   products = [],
-  onSelectProduct
+  onSelectProduct,
+  settings
 }) => {
   const handlePromos = onOpenPromos || onViewPromotions || onShopNow;
+  const config = settings?.homepageConfig;
+
+  // Custom texts from admin homepage customizer
+  const badgeText = config?.heroBadge || "Efficacité • Rapidité • Fiabilité";
+  const mainTitle = config?.heroTitle || "Les bons produits";
+  const highlightWord = config?.heroHighlight || "au bon prix.";
+  const subtitle = config?.heroSubtitle || "Découvrez nos produits tendance et profitez de nos meilleures offres au Sénégal. Livraison rapide à Dakar, banlieue et dans toutes les régions.";
+  const primaryBtnText = config?.heroPrimaryBtnText || "ACHETER MAINTENANT";
+  const secondaryBtnText = config?.heroSecondaryBtnText || "VOIR LES PROMOTIONS";
+  const customBgImage = config?.heroBgImage;
+  const gradientTheme = config?.heroBgGradient || 'dark-emerald';
+
+  // Gradient themes mapping
+  const gradientClasses = {
+    'dark-emerald': 'from-gray-950 via-gray-900 to-emerald-950',
+    'sunset': 'from-gray-950 via-red-950 to-orange-950',
+    'deep-blue': 'from-gray-950 via-slate-900 to-blue-950',
+    'classic-dark': 'from-gray-950 via-gray-900 to-black',
+    'electric-purple': 'from-gray-950 via-purple-950 to-indigo-950',
+    'midnight-gold': 'from-black via-zinc-900 to-amber-950'
+  }[gradientTheme] || 'from-gray-950 via-gray-900 to-emerald-950';
+
+  // Button actions handlers
+  const handlePrimaryClick = () => {
+    const action = config?.heroPrimaryBtnAction || 'shop';
+    if (action === 'promotions') {
+      handlePromos();
+    } else if (action === 'whatsapp') {
+      const phone = cleanPhoneForWhatsApp(settings?.whatsappPhone || settings?.phone || '707717281');
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent("Bonjour DIAYMA GAAW, je souhaite avoir des renseignements sur vos produits disponibles.")}`, '_blank');
+    } else {
+      onShopNow();
+    }
+  };
+
+  const handleSecondaryClick = () => {
+    const action = config?.heroSecondaryBtnAction || 'promotions';
+    if (action === 'shop') {
+      onShopNow();
+    } else if (action === 'whatsapp') {
+      const phone = cleanPhoneForWhatsApp(settings?.whatsappPhone || settings?.phone || '707717281');
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent("Bonjour DIAYMA GAAW, je souhaite commander un article en promotion.")}`, '_blank');
+    } else {
+      handlePromos();
+    }
+  };
 
   // Sélectionne le produit en promotion vedette (soit celui passé en prop, soit le premier en promo du catalogue)
   const promoProduct = featuredProduct || products.find(p => (p.discountPercent && p.discountPercent > 0) || p.isFlashSale) || products[0];
@@ -39,9 +90,18 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
       onShopNow();
     }
   };
+
   return (
-    <div className="relative bg-gradient-to-br from-gray-950 via-gray-900 to-emerald-950 text-white overflow-hidden py-12 lg:py-20 border-b border-gray-800">
+    <div className={`relative bg-gradient-to-br ${gradientClasses} text-white overflow-hidden py-12 lg:py-20 border-b border-gray-800`}>
       
+      {/* Background Image (If customized by Admin) */}
+      {customBgImage && customBgImage.trim() && (
+        <div 
+          className="absolute inset-0 bg-cover bg-center mix-blend-overlay opacity-30 pointer-events-none"
+          style={{ backgroundImage: `url(${customBgImage.trim()})` }}
+        />
+      )}
+
       {/* Subtle background glow accents */}
       <div className="absolute top-0 right-1/4 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-0 left-10 w-80 h-80 bg-red-600/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -54,37 +114,36 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-              <span>Efficacité • Rapidité • Fiabilité</span>
+              <span>{badgeText}</span>
             </div>
 
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.15] font-display">
-              Les bons produits <br />
+              {mainTitle} <br />
               <span className="bg-gradient-to-r from-white via-yellow-200 to-yellow-400 bg-clip-text text-transparent">
-                au bon prix.
+                {highlightWord}
               </span>
             </h1>
 
             <p className="text-gray-300 text-base sm:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed font-normal">
-              Découvrez nos produits tendance et profitez de nos meilleures offres au Sénégal. 
-              Livraison rapide à Dakar, banlieue et dans toutes les régions.
+              {subtitle}
             </p>
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
               <button
-                onClick={onShopNow}
+                onClick={handlePrimaryClick}
                 className="w-full sm:w-auto px-8 py-4 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-base rounded-2xl transition shadow-xl shadow-red-600/30 flex items-center justify-center gap-3 cursor-pointer group"
               >
-                <span>ACHETER MAINTENANT</span>
+                <span>{primaryBtnText}</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition" />
               </button>
 
               <button
-                onClick={handlePromos}
+                onClick={handleSecondaryClick}
                 className="w-full sm:w-auto px-8 py-4 bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-base rounded-2xl backdrop-blur-md border border-white/20 transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Flame className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-                <span>VOIR LES PROMOTIONS</span>
+                <span>{secondaryBtnText}</span>
               </button>
             </div>
 

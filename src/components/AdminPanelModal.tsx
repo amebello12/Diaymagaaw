@@ -48,11 +48,16 @@ import {
   Activity,
   Share2,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  Layout,
+  MoveUp,
+  MoveDown,
+  Palette,
+  Sliders
 } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { PromoAnnouncementBanner } from './PromoAnnouncementBanner';
-import { Product, Category, Order, PromoCode, DeliveryZone, StoreSettings, Review, VisitorStats } from '../types';
+import { Product, Category, Order, PromoCode, DeliveryZone, StoreSettings, Review, VisitorStats, HomepageConfig, HeroBgGradientTheme } from '../types';
 import { formatFCFA, STORE_PHONE_RAW, formatPhoneNumber, cleanPhoneForWhatsApp } from '../utils/currency';
 import { INITIAL_STORE_SETTINGS } from '../data/initialData';
 import { WaveLogo, OrangeMoneyLogo, FreeMoneyLogo, CashOnDeliveryLogo } from './PaymentLogos';
@@ -233,7 +238,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Tabs
-  const [tab, setTab] = useState<'dashboard' | 'products' | 'orders' | 'promos' | 'delivery' | 'reviews' | 'whatsapp' | 'settings'>('dashboard');
+  const [tab, setTab] = useState<'dashboard' | 'products' | 'orders' | 'promos' | 'delivery' | 'reviews' | 'whatsapp' | 'settings' | 'homepage'>('dashboard');
 
   // Product Filtering & Form State
   const [productSearch, setProductSearch] = useState('');
@@ -387,6 +392,135 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         setSettingsSavedSuccess(false);
       }, 3500);
     }
+  };
+
+  const heroBgFileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const updateHomepageConfig = (updater: Partial<HomepageConfig> | ((prev: HomepageConfig) => HomepageConfig)) => {
+    setStoreSettings(prev => {
+      const base: HomepageConfig = prev.homepageConfig || {
+        heroBadge: "Efficacité • Rapidité • Fiabilité",
+        heroTitle: "Les bons produits",
+        heroHighlight: "au bon prix.",
+        heroSubtitle: "Découvrez nos produits tendance et profitez de nos meilleures offres au Sénégal. Livraison rapide à Dakar, banlieue et dans toutes les régions.",
+        heroBgImage: "",
+        heroBgGradient: "dark-emerald",
+        heroPrimaryBtnText: "ACHETER MAINTENANT",
+        heroPrimaryBtnAction: "shop",
+        heroSecondaryBtnText: "VOIR LES PROMOTIONS",
+        heroSecondaryBtnAction: "promotions",
+        cardBuyButtonText: "Acheter",
+        cardCartButtonText: "Au panier",
+        cardWhatsAppButtonText: "WhatsApp",
+        showCardWhatsApp: true,
+        showCardCart: true,
+        showCardBuyNow: true,
+        sectionsVisibility: {
+          heroBanner: true,
+          categoryGrid: true,
+          flashSale: true,
+          featuredProducts: true,
+          allProductsCatalog: true,
+          reviews: true,
+          brandPartners: true,
+          trustBadges: true,
+        },
+        sectionOrder: [
+          'heroBanner',
+          'categoryGrid',
+          'flashSale',
+          'featuredProducts',
+          'allProductsCatalog',
+          'reviews',
+          'brandPartners',
+          'trustBadges'
+        ],
+        sectionTitles: {
+          flashSaleTitle: "⚡ PROMO SÉNÉGAL : OFFRES FLASH",
+          flashSaleSubtitle: "Faites défiler le diaporama des meilleures remises au Sénégal. Articles neufs avec garantie, en stock à Dakar.",
+          featuredTitle: "🔥 NOS PRODUITS VEDETTES",
+          featuredSubtitle: "Les articles les plus demandés et recommandés par nos clients au Sénégal.",
+          categoryGridTitle: "Explorez par Catégories",
+          categoryGridSubtitle: "Trouvez les meilleurs équipements électroniques, maison & bien-être au Sénégal.",
+          allProductsTitle: "📦 TOUT LE CATALOGUE DISPONIBLE",
+          allProductsSubtitle: "Tous nos articles testés et certifiés DIAYMA GAAW en stock immédiat à Dakar.",
+          brandPartnersTitle: "Grandes Marques & Partenaires Officiels",
+          reviewsTitle: "Avis Clients Vérifiés",
+          reviewsSubtitle: "Retours d'expérience authentiques de nos acheteurs à Dakar et dans toutes les régions."
+        }
+      };
+
+      const nextConfig: HomepageConfig = typeof updater === 'function' ? updater(base) : { ...base, ...updater };
+      const updatedSettings = { ...prev, homepageConfig: nextConfig };
+      try {
+        localStorage.setItem('dg_store_settings', JSON.stringify(updatedSettings));
+      } catch {
+        // ignore
+      }
+      if (onUpdateSettings) {
+        onUpdateSettings(updatedSettings);
+      }
+      return updatedSettings;
+    });
+    setSettingsSavedSuccess(true);
+    setTimeout(() => setSettingsSavedSuccess(false), 3000);
+  };
+
+  const handleHeroBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await compressAndReadImage(file);
+      updateHomepageConfig({ heroBgImage: dataUrl });
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleMoveSection = (sectionKey: string, direction: 'up' | 'down') => {
+    const defaultOrder = [
+      'heroBanner',
+      'categoryGrid',
+      'flashSale',
+      'featuredProducts',
+      'allProductsCatalog',
+      'reviews',
+      'brandPartners',
+      'trustBadges'
+    ];
+    const currentOrder = storeSettings.homepageConfig?.sectionOrder || defaultOrder;
+    const index = currentOrder.indexOf(sectionKey);
+    if (index === -1) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= currentOrder.length) return;
+
+    const reordered = [...currentOrder];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(newIndex, 0, moved);
+
+    updateHomepageConfig({ sectionOrder: reordered });
+  };
+
+  const handleToggleSectionVisibility = (sectionKey: string) => {
+    const defaultVis = {
+      heroBanner: true,
+      categoryGrid: true,
+      flashSale: true,
+      featuredProducts: true,
+      allProductsCatalog: true,
+      reviews: true,
+      brandPartners: true,
+      trustBadges: true,
+    };
+    const currentVis = storeSettings.homepageConfig?.sectionsVisibility || defaultVis;
+    const currentVal = (currentVis as any)[sectionKey] !== false;
+    updateHomepageConfig({
+      sectionsVisibility: {
+        ...currentVis,
+        [sectionKey]: !currentVal
+      }
+    });
   };
 
   const [logoUploading, setLogoUploading] = useState(false);
@@ -1166,6 +1300,19 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 <span>Liaison WhatsApp & Facebook Market</span>
                 <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[9px] font-black">
                   Flux Direct
+                </span>
+              </button>
+
+              <button
+                onClick={() => setTab('homepage')}
+                className={`py-3.5 px-4 text-xs font-bold transition border-b-2 whitespace-nowrap flex items-center gap-2 ${
+                  tab === 'homepage' ? 'border-red-600 text-red-600 bg-white shadow-xs' : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Layout className="w-4 h-4 text-red-600" />
+                <span>Page d'Accueil & Disposition</span>
+                <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full text-[9px] font-black">
+                  Personnaliser
                 </span>
               </button>
 
@@ -4805,6 +4952,644 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       </button>
                     </div>
                   )}
+
+                </div>
+              )}
+
+              {/* TAB 7: HOMEPAGE CUSTOMIZER (DISPOSITION, TEXTES, FOND, BOUTONS) */}
+              {tab === 'homepage' && (
+                <div className="space-y-6">
+                  
+                  {/* Top Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gray-50 border border-gray-200 rounded-2xl">
+                    <div>
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-black uppercase tracking-wider mb-1">
+                        <Sparkles className="w-3 h-3 text-red-600" />
+                        <span>Éditeur Visuel en Direct</span>
+                      </div>
+                      <h3 className="font-extrabold text-sm text-gray-900 flex items-center gap-2">
+                        <Layout className="w-4 h-4 text-red-600" />
+                        <span>Disposition & Personnalisation de la Page d'Accueil</span>
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Personnalisez les textes du Hero, les images de fond, les boutons de commande et réorganisez l'ordre des sections.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSaveSettings}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl shadow-md shadow-red-600/20 transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>Enregistrer les modifications</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Feedback Notification */}
+                  {settingsSavedSuccess && (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 flex items-center gap-2.5 animate-in fade-in">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="font-bold">Modifications de la page d'accueil enregistrées et immédiatement visibles par les visiteurs !</span>
+                    </div>
+                  )}
+
+                  {/* SECTION 1: HERO BANNER (TEXTES, IMAGE DE FOND, COULEURS & CTA) */}
+                  <div className="p-5 bg-white border border-gray-200 rounded-3xl shadow-sm space-y-5">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-600 to-red-800 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                          🚀
+                        </div>
+                        <div>
+                          <h4 className="font-black text-sm text-gray-900">Bannière Principale Hero</h4>
+                          <p className="text-[11px] text-gray-500">Personnalisez l'accroche, les titres, le fond et les boutons d'appel à l'action.</p>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-[10px] font-bold rounded-full">
+                        En-tête du site
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Badge Text */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                          Badge d'accroche (au-dessus du titre)
+                        </label>
+                        <input
+                          type="text"
+                          value={storeSettings.homepageConfig?.heroBadge ?? "Efficacité • Rapidité • Fiabilité"}
+                          onChange={(e) => updateHomepageConfig({ heroBadge: e.target.value })}
+                          placeholder="Ex: ⚡ Vente Flash • Jusqu'à -40%"
+                          className="w-full px-3.5 py-2.5 bg-gray-50 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white transition"
+                        />
+                      </div>
+
+                      {/* Mot ou expression mis en valeur (Highlight) */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                          Expression dorée en dégradé
+                        </label>
+                        <input
+                          type="text"
+                          value={storeSettings.homepageConfig?.heroHighlight ?? "au bon prix."}
+                          onChange={(e) => updateHomepageConfig({ heroHighlight: e.target.value })}
+                          placeholder="Ex: au Sénégal."
+                          className="w-full px-3.5 py-2.5 bg-gray-50 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white transition"
+                        />
+                      </div>
+
+                      {/* Main Title */}
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                          Titre principal (Ligne 1)
+                        </label>
+                        <input
+                          type="text"
+                          value={storeSettings.homepageConfig?.heroTitle ?? "Les bons produits"}
+                          onChange={(e) => updateHomepageConfig({ heroTitle: e.target.value })}
+                          placeholder="Ex: L'Électronique & Équipement"
+                          className="w-full px-3.5 py-2.5 bg-gray-50 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white transition"
+                        />
+                      </div>
+
+                      {/* Subtitle */}
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                          Texte descriptif / Sous-titre
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={storeSettings.homepageConfig?.heroSubtitle ?? "Découvrez nos produits tendance et profitez de nos meilleures offres au Sénégal. Livraison rapide à Dakar, banlieue et dans toutes les régions."}
+                          onChange={(e) => updateHomepageConfig({ heroSubtitle: e.target.value })}
+                          placeholder="Présentez brièvement vos garanties, rapidité de livraison et offres..."
+                          className="w-full px-3.5 py-2.5 bg-gray-50 rounded-xl border border-gray-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white transition"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Gradient Themes Selector */}
+                    <div className="pt-3 border-t border-gray-100 space-y-2">
+                      <label className="block text-xs font-bold text-gray-800">
+                        Style de Dégradé d'Arrière-plan
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                        {[
+                          { id: 'dark-emerald', label: 'Sombre Émeraude', class: 'from-gray-950 via-gray-900 to-emerald-950' },
+                          { id: 'sunset', label: 'Coucher de Soleil', class: 'from-gray-950 via-red-950 to-orange-950' },
+                          { id: 'deep-blue', label: 'Bleu Profond Tech', class: 'from-gray-950 via-slate-900 to-blue-950' },
+                          { id: 'classic-dark', label: 'Charbon Élégant', class: 'from-gray-950 via-gray-900 to-black' },
+                          { id: 'electric-purple', label: 'Violet Électrique', class: 'from-gray-950 via-purple-950 to-indigo-950' },
+                          { id: 'midnight-gold', label: 'Or & Nuit Dakaroise', class: 'from-black via-zinc-900 to-amber-950' },
+                        ].map((theme) => (
+                          <button
+                            key={theme.id}
+                            type="button"
+                            onClick={() => updateHomepageConfig({ heroBgGradient: theme.id as HeroBgGradientTheme })}
+                            className={`p-3 rounded-2xl border text-left transition relative overflow-hidden cursor-pointer ${
+                              (storeSettings.homepageConfig?.heroBgGradient || 'dark-emerald') === theme.id
+                                ? 'border-red-600 ring-2 ring-red-600/30 shadow-md'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <div className={`h-8 rounded-lg bg-gradient-to-r ${theme.class} mb-1.5 border border-white/20`}></div>
+                            <span className="text-[11px] font-bold text-gray-900 block truncate leading-tight">
+                              {theme.label}
+                            </span>
+                            {(storeSettings.homepageConfig?.heroBgGradient || 'dark-emerald') === theme.id && (
+                              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-600"></span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Background Image Uploader & Presets */}
+                    <div className="pt-3 border-t border-gray-100 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                          <ImageIcon className="w-4 h-4 text-red-600" />
+                          <span>Image de Fond du Hero (Optionnelle)</span>
+                        </label>
+                        {storeSettings.homepageConfig?.heroBgImage && (
+                          <button
+                            type="button"
+                            onClick={() => updateHomepageConfig({ heroBgImage: '' })}
+                            className="text-xs text-red-600 font-bold hover:underline cursor-pointer"
+                          >
+                            Supprimer l'image de fond
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                        <div>
+                          <input
+                            type="file"
+                            ref={heroBgFileInputRef}
+                            onChange={handleHeroBgUpload}
+                            accept="image/*"
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => heroBgFileInputRef.current?.click()}
+                            className="w-full py-3 px-4 bg-gray-50 hover:bg-gray-100 border-2 border-dashed border-gray-300 rounded-2xl text-xs font-bold text-gray-700 flex items-center justify-center gap-2 cursor-pointer transition"
+                          >
+                            <UploadCloud className="w-4 h-4 text-red-600" />
+                            <span>Téléverser une image de fond depuis cet appareil</span>
+                          </button>
+                        </div>
+
+                        <div>
+                          <input
+                            type="text"
+                            value={storeSettings.homepageConfig?.heroBgImage || ''}
+                            onChange={(e) => updateHomepageConfig({ heroBgImage: e.target.value })}
+                            placeholder="Ou collez une URL d'image directe (https://...)"
+                            className="w-full px-3.5 py-2.5 bg-gray-50 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white transition"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Background Presets */}
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-bold text-gray-500">Ou choisissez parmi nos images de fond haute définition :</span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {[
+                            { name: 'Son & Concerts Pro', url: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=1200&auto=format&fit=crop' },
+                            { name: 'High-Tech & TV 4K', url: 'https://images.unsplash.com/photo-1593784991095-a205069470b6?q=80&w=1200&auto=format&fit=crop' },
+                            { name: 'Électroménager Moderne', url: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?q=80&w=1200&auto=format&fit=crop' },
+                            { name: 'Énergie Solaire Sénégal', url: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?q=80&w=1200&auto=format&fit=crop' },
+                          ].map((preset) => (
+                            <button
+                              key={preset.name}
+                              type="button"
+                              onClick={() => updateHomepageConfig({ heroBgImage: preset.url })}
+                              className="group relative h-16 rounded-xl overflow-hidden border border-gray-200 text-left p-2 cursor-pointer shadow-xs hover:border-red-500 transition"
+                            >
+                              <img src={preset.url} alt={preset.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition" />
+                              <div className="absolute inset-0 bg-black/60 group-hover:bg-black/40 transition"></div>
+                              <span className="relative z-10 text-[10px] font-black text-white leading-tight block">
+                                {preset.name}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CTA Buttons Configuration */}
+                    <div className="pt-3 border-t border-gray-100 space-y-3">
+                      <label className="block text-xs font-bold text-gray-800">
+                        Boutons d'Appel à l'Action du Hero (CTA)
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Primary Button */}
+                        <div className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
+                          <span className="text-[11px] font-black uppercase text-red-600 block">Bouton Principal (Rouge)</span>
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Texte du bouton</label>
+                            <input
+                              type="text"
+                              value={storeSettings.homepageConfig?.heroPrimaryBtnText ?? "ACHETER MAINTENANT"}
+                              onChange={(e) => updateHomepageConfig({ heroPrimaryBtnText: e.target.value })}
+                              placeholder="Ex: ACHETER MAINTENANT"
+                              className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-600"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Action au clic</label>
+                            <select
+                              value={storeSettings.homepageConfig?.heroPrimaryBtnAction ?? "shop"}
+                              onChange={(e) => updateHomepageConfig({ heroPrimaryBtnAction: e.target.value as any })}
+                              className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-600"
+                            >
+                              <option value="shop">Ouvrir le Catalogue / Boutique</option>
+                              <option value="promotions">Ouvrir les Promotions</option>
+                              <option value="whatsapp">Ouvrir la discussion WhatsApp</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Secondary Button */}
+                        <div className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
+                          <span className="text-[11px] font-black uppercase text-amber-600 block">Bouton Secondaire (Transparent)</span>
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Texte du bouton</label>
+                            <input
+                              type="text"
+                              value={storeSettings.homepageConfig?.heroSecondaryBtnText ?? "VOIR LES PROMOTIONS"}
+                              onChange={(e) => updateHomepageConfig({ heroSecondaryBtnText: e.target.value })}
+                              placeholder="Ex: VOIR LES PROMOTIONS"
+                              className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-600"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Action au clic</label>
+                            <select
+                              value={storeSettings.homepageConfig?.heroSecondaryBtnAction ?? "promotions"}
+                              onChange={(e) => updateHomepageConfig({ heroSecondaryBtnAction: e.target.value as any })}
+                              className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-600"
+                            >
+                              <option value="promotions">Ouvrir les Promotions</option>
+                              <option value="shop">Ouvrir le Catalogue</option>
+                              <option value="whatsapp">Commander sur WhatsApp</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 2: BOUTONS DE COMMANDE SUR LES FICHES PRODUITS */}
+                  <div className="p-5 bg-white border border-gray-200 rounded-3xl shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-red-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                          🛒
+                        </div>
+                        <div>
+                          <h4 className="font-black text-sm text-gray-900">Boutons de Commande sur les Fiches Produits</h4>
+                          <p className="text-[11px] text-gray-500">Configurez les libellés et la visibilité des boutons d'achat rapide sur chaque carte produit.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {/* Buy Now Button Text */}
+                      <div className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-gray-800">Bouton Achat Direct</label>
+                          <input
+                            type="checkbox"
+                            checked={storeSettings.homepageConfig?.showCardBuyNow !== false}
+                            onChange={(e) => updateHomepageConfig({ showCardBuyNow: e.target.checked })}
+                            className="rounded text-red-600 focus:ring-red-500 cursor-pointer"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={storeSettings.homepageConfig?.cardBuyButtonText ?? "Acheter"}
+                          onChange={(e) => updateHomepageConfig({ cardBuyButtonText: e.target.value })}
+                          placeholder="Ex: Acheter, Commander, Commander Express"
+                          className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-600"
+                        />
+                        <span className="text-[10px] text-gray-400 block">Bouton principal rouge ouvrant directement le formulaire de commande.</span>
+                      </div>
+
+                      {/* Add to Cart Button Text */}
+                      <div className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-gray-800">Bouton Panier</label>
+                          <input
+                            type="checkbox"
+                            checked={storeSettings.homepageConfig?.showCardCart !== false}
+                            onChange={(e) => updateHomepageConfig({ showCardCart: e.target.checked })}
+                            className="rounded text-red-600 focus:ring-red-500 cursor-pointer"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={storeSettings.homepageConfig?.cardCartButtonText ?? "Au panier"}
+                          onChange={(e) => updateHomepageConfig({ cardCartButtonText: e.target.value })}
+                          placeholder="Ex: Au panier, Panier"
+                          className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-600"
+                        />
+                        <span className="text-[10px] text-gray-400 block">Bouton gris ajoutant le produit au panier d'achat.</span>
+                      </div>
+
+                      {/* WhatsApp Button Text */}
+                      <div className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-gray-800">Bouton WhatsApp Carte</label>
+                          <input
+                            type="checkbox"
+                            checked={storeSettings.homepageConfig?.showCardWhatsApp !== false}
+                            onChange={(e) => updateHomepageConfig({ showCardWhatsApp: e.target.checked })}
+                            className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={storeSettings.homepageConfig?.cardWhatsAppButtonText ?? "WhatsApp"}
+                          onChange={(e) => updateHomepageConfig({ cardWhatsAppButtonText: e.target.value })}
+                          placeholder="Ex: WhatsApp, Commander"
+                          className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                        />
+                        <span className="text-[10px] text-gray-400 block">Bouton vert flottant sur l'image pour commander en 1 clic par WhatsApp.</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 3: DISPOSITION & RÉORGANISATION DES SECTIONS */}
+                  <div className="p-5 bg-white border border-gray-200 rounded-3xl shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                          <Sliders className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="font-black text-sm text-gray-900">Disposition & Ordre des Sections de la Page d'Accueil</h4>
+                          <p className="text-[11px] text-gray-500">Utilisez les flèches Monter/Descendre pour réagencer l'accueil et activez/désactivez chaque section.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {(() => {
+                        const defaultOrder = [
+                          'heroBanner',
+                          'categoryGrid',
+                          'flashSale',
+                          'featuredProducts',
+                          'allProductsCatalog',
+                          'reviews',
+                          'brandPartners',
+                          'trustBadges'
+                        ];
+                        const order = storeSettings.homepageConfig?.sectionOrder || defaultOrder;
+                        const vis = storeSettings.homepageConfig?.sectionsVisibility || {};
+
+                        const sectionLabels: { [key: string]: { name: string; desc: string; icon: string } } = {
+                          heroBanner: { name: 'Bannière Principale Hero', desc: 'Accroche, titre principal, image vedette et boutons d\'action', icon: '🚀' },
+                          categoryGrid: { name: 'Grille des Rayons & Catégories', desc: 'Présentation visuelle de toutes les collections du catalogue', icon: '🏷️' },
+                          flashSale: { name: 'Diaporama Ventes Flash & Promos Sénégal', desc: 'Carrousel animé avec compte à rebours et remises exceptionnelles', icon: '⚡' },
+                          featuredProducts: { name: 'Sélection Produits Vedettes', desc: 'Grille des articles les plus demandés et recommandés avec filtres', icon: '🔥' },
+                          allProductsCatalog: { name: 'Tout le Catalogue Disponible (87+ articles)', desc: 'Affichage complet et direct de tous les articles avec recherche en direct', icon: '📦' },
+                          reviews: { name: 'Avis et Témoignages Clients Vérifiés', desc: 'Retours d\'expérience et notes de clients réels au Sénégal', icon: '⭐' },
+                          brandPartners: { name: 'Logos Sponsors & Partenaires Officiels', desc: 'JBL, Samsung, Sony, Ahuja, Behringer, Astech, Sharp, Shure', icon: '🏆' },
+                          trustBadges: { name: 'Garanties & Badges de Réassurance', desc: 'Livraison express 2h-4h, paiement Wave/Orange Money, garantie 100% neuf', icon: '🛡️' },
+                        };
+
+                        return order.map((sectionKey, idx) => {
+                          const info = sectionLabels[sectionKey] || { name: sectionKey, desc: '', icon: '📌' };
+                          const isVisible = (vis as any)[sectionKey] !== false;
+
+                          return (
+                            <div
+                              key={sectionKey}
+                              className={`p-3 sm:p-4 rounded-2xl border transition flex items-center justify-between gap-3 ${
+                                isVisible
+                                  ? 'bg-white border-gray-200 shadow-2xs hover:border-gray-300'
+                                  : 'bg-gray-100 border-gray-200 opacity-60'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className="w-7 h-7 rounded-xl bg-gray-100 text-gray-700 flex items-center justify-center font-mono font-black text-xs shrink-0">
+                                  #{idx + 1}
+                                </span>
+                                <span className="text-xl shrink-0">{info.icon}</span>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <h5 className="font-extrabold text-xs sm:text-sm text-gray-900 truncate">
+                                      {info.name}
+                                    </h5>
+                                    {!isVisible && (
+                                      <span className="px-1.5 py-0.2 bg-gray-200 text-gray-600 rounded text-[9px] font-bold">
+                                        Masquée
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-gray-500 truncate">{info.desc}</p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {/* Up button */}
+                                <button
+                                  type="button"
+                                  disabled={idx === 0}
+                                  onClick={() => handleMoveSection(sectionKey, 'up')}
+                                  className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 disabled:opacity-30 disabled:pointer-events-none text-gray-700 flex items-center justify-center transition cursor-pointer"
+                                  title="Déplacer vers le haut"
+                                >
+                                  <MoveUp className="w-4 h-4" />
+                                </button>
+
+                                {/* Down button */}
+                                <button
+                                  type="button"
+                                  disabled={idx === order.length - 1}
+                                  onClick={() => handleMoveSection(sectionKey, 'down')}
+                                  className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 disabled:opacity-30 disabled:pointer-events-none text-gray-700 flex items-center justify-center transition cursor-pointer"
+                                  title="Déplacer vers le bas"
+                                >
+                                  <MoveDown className="w-4 h-4" />
+                                </button>
+
+                                {/* Visibility toggle */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleSectionVisibility(sectionKey)}
+                                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition cursor-pointer ${
+                                    isVisible
+                                      ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                  }`}
+                                  title={isVisible ? 'Masquer cette section' : 'Afficher cette section'}
+                                >
+                                  {isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* SECTION 4: TITRES & SOUS-TITRES DES SECTIONS */}
+                  <div className="p-5 bg-white border border-gray-200 rounded-3xl shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                          ✏️
+                        </div>
+                        <div>
+                          <h4 className="font-black text-sm text-gray-900">Titres & Sous-Titres Personnalisés des Sections</h4>
+                          <p className="text-[11px] text-gray-500">Adaptez les textes d'en-tête de chaque section selon vos promotions ou événements.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Ventes Flash Title */}
+                      <div className="space-y-1.5 p-3.5 bg-gray-50 rounded-2xl border border-gray-200">
+                        <span className="text-[11px] font-black uppercase text-red-600 block">Section Ventes Flash</span>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-600">Titre</label>
+                          <input
+                            type="text"
+                            value={storeSettings.homepageConfig?.sectionTitles?.flashSaleTitle ?? "⚡ PROMO SÉNÉGAL : OFFRES FLASH"}
+                            onChange={(e) => updateHomepageConfig({
+                              sectionTitles: {
+                                ...storeSettings.homepageConfig?.sectionTitles,
+                                flashSaleTitle: e.target.value
+                              }
+                            })}
+                            className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-600">Sous-titre</label>
+                          <input
+                            type="text"
+                            value={storeSettings.homepageConfig?.sectionTitles?.flashSaleSubtitle ?? "Faites défiler le diaporama des meilleures remises au Sénégal. Articles neufs avec garantie, en stock à Dakar."}
+                            onChange={(e) => updateHomepageConfig({
+                              sectionTitles: {
+                                ...storeSettings.homepageConfig?.sectionTitles,
+                                flashSaleSubtitle: e.target.value
+                              }
+                            })}
+                            className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Produits Vedettes Title */}
+                      <div className="space-y-1.5 p-3.5 bg-gray-50 rounded-2xl border border-gray-200">
+                        <span className="text-[11px] font-black uppercase text-gray-800 block">Section Produits Vedettes</span>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-600">Titre</label>
+                          <input
+                            type="text"
+                            value={storeSettings.homepageConfig?.sectionTitles?.featuredTitle ?? "🔥 NOS PRODUITS VEDETTES"}
+                            onChange={(e) => updateHomepageConfig({
+                              sectionTitles: {
+                                ...storeSettings.homepageConfig?.sectionTitles,
+                                featuredTitle: e.target.value
+                              }
+                            })}
+                            className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-600">Sous-titre</label>
+                          <input
+                            type="text"
+                            value={storeSettings.homepageConfig?.sectionTitles?.featuredSubtitle ?? "Les articles les plus demandés et recommandés par nos clients au Sénégal."}
+                            onChange={(e) => updateHomepageConfig({
+                              sectionTitles: {
+                                ...storeSettings.homepageConfig?.sectionTitles,
+                                featuredSubtitle: e.target.value
+                              }
+                            })}
+                            className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Tout le Catalogue Title */}
+                      <div className="space-y-1.5 p-3.5 bg-gray-50 rounded-2xl border border-gray-200">
+                        <span className="text-[11px] font-black uppercase text-emerald-700 block">Section Tout le Catalogue</span>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-600">Titre</label>
+                          <input
+                            type="text"
+                            value={storeSettings.homepageConfig?.sectionTitles?.allProductsTitle ?? "📦 TOUT LE CATALOGUE DISPONIBLE"}
+                            onChange={(e) => updateHomepageConfig({
+                              sectionTitles: {
+                                ...storeSettings.homepageConfig?.sectionTitles,
+                                allProductsTitle: e.target.value
+                              }
+                            })}
+                            className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-600">Sous-titre</label>
+                          <input
+                            type="text"
+                            value={storeSettings.homepageConfig?.sectionTitles?.allProductsSubtitle ?? "Tous nos articles testés et certifiés DIAYMA GAAW en stock immédiat à Dakar."}
+                            onChange={(e) => updateHomepageConfig({
+                              sectionTitles: {
+                                ...storeSettings.homepageConfig?.sectionTitles,
+                                allProductsSubtitle: e.target.value
+                              }
+                            })}
+                            className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Catégories Title */}
+                      <div className="space-y-1.5 p-3.5 bg-gray-50 rounded-2xl border border-gray-200">
+                        <span className="text-[11px] font-black uppercase text-indigo-700 block">Section Rayons & Catégories</span>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-600">Titre</label>
+                          <input
+                            type="text"
+                            value={storeSettings.homepageConfig?.sectionTitles?.categoryGridTitle ?? "Explorez par Catégories"}
+                            onChange={(e) => updateHomepageConfig({
+                              sectionTitles: {
+                                ...storeSettings.homepageConfig?.sectionTitles,
+                                categoryGridTitle: e.target.value
+                              }
+                            })}
+                            className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-600">Sous-titre</label>
+                          <input
+                            type="text"
+                            value={storeSettings.homepageConfig?.sectionTitles?.categoryGridSubtitle ?? "Trouvez les meilleurs équipements électroniques, maison & bien-être au Sénégal."}
+                            onChange={(e) => updateHomepageConfig({
+                              sectionTitles: {
+                                ...storeSettings.homepageConfig?.sectionTitles,
+                                categoryGridSubtitle: e.target.value
+                              }
+                            })}
+                            className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-medium"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
                 </div>
               )}

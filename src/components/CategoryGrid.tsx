@@ -1,5 +1,5 @@
 import React from 'react';
-import { Category, Product } from '../types';
+import { Category, Product, StoreSettings } from '../types';
 import { 
   Smartphone, 
   Laptop, 
@@ -21,13 +21,19 @@ interface CategoryGridProps {
   categories: Category[];
   products?: Product[];
   onSelectCategory: (categorySlug: string) => void;
+  settings?: StoreSettings;
 }
 
 export const CategoryGrid: React.FC<CategoryGridProps> = ({
   categories,
   products = [],
-  onSelectCategory
+  onSelectCategory,
+  settings
 }) => {
+  const config = settings?.homepageConfig;
+  const sectionTitle = config?.sectionTitles?.categoryGridTitle || 'Explorez par Catégories';
+  const sectionSubtitle = config?.sectionTitles?.categoryGridSubtitle || 'Trouvez les meilleurs équipements électroniques, maison & bien-être au Sénégal';
+
   const getIcon = (iconName: string) => {
     switch (iconName) {
       case 'Speaker':
@@ -71,11 +77,11 @@ export const CategoryGrid: React.FC<CategoryGridProps> = ({
               <span>Nos Rayons Principaux</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-gray-900 mt-1 font-display">
-              Explorez par Catégories
+              {sectionTitle}
             </h2>
           </div>
           <p className="text-sm text-gray-500">
-            Trouvez les meilleurs équipements électroniques, maison & bien-être au Sénégal
+            {sectionSubtitle}
           </p>
         </div>
 

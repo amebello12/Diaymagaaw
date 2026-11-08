@@ -26,8 +26,13 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
   onBuyNow,
   settings
 }) => {
+  const highestProductPrice = useMemo(() => {
+    if (!products || products.length === 0) return 10000000;
+    return Math.max(...products.map(p => p.price || 0), 2000000);
+  }, [products]);
+
   const [searchFilter, setSearchFilter] = useState('');
-  const [maxPrice, setMaxPrice] = useState<number>(700000);
+  const [maxPrice, setMaxPrice] = useState<number>(() => 10000000);
   const [onlyPromos, setOnlyPromos] = useState(false);
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [sortBy, setSortBy] = useState<'featured' | 'price_asc' | 'price_desc' | 'rating'>('featured');
@@ -138,7 +143,7 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
                     onSelectCategorySlug(null);
                     setOnlyPromos(false);
                     setSearchFilter('');
-                    setMaxPrice(700000);
+                    setMaxPrice(highestProductPrice);
                   }}
                   className="text-[11px] text-red-600 font-bold hover:underline"
                 >
@@ -190,10 +195,10 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
               </div>
               <input
                 type="range"
-                min={10000}
-                max={700000}
-                step={5000}
-                value={maxPrice}
+                min={5000}
+                max={Math.max(highestProductPrice, 5000000)}
+                step={10000}
+                value={Math.min(maxPrice, Math.max(highestProductPrice, 5000000))}
                 onChange={(e) => setMaxPrice(Number(e.target.value))}
                 className="w-full accent-red-600"
               />
@@ -248,7 +253,7 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
                   onClick={() => {
                     onSelectCategorySlug(null);
                     setOnlyPromos(false);
-                    setMaxPrice(700000);
+                    setMaxPrice(highestProductPrice);
                   }}
                   className="px-6 py-2.5 bg-red-600 text-white rounded-xl text-xs font-bold"
                 >

@@ -17,6 +17,7 @@ interface FeaturedProductsProps {
 
 export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
   products,
+  categories = [],
   onSelectProduct,
   onAddToCart,
   onBuyNow,
@@ -25,15 +26,24 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
   settings
 }) => {
   const handleViewAll = onViewCatalog || onViewAll || (() => {});
-  const [filter, setFilter] = useState<'all' | 'promos' | 'electronics' | 'sound_video' | 'solaire' | 'appliances'>('all');
+  const [filter, setFilter] = useState<string>('all');
+  const config = settings?.homepageConfig;
+
+  const sectionTitle = config?.sectionTitles?.featuredTitle || '🔥 NOS PRODUITS VEDETTES';
+  const sectionSubtitle = config?.sectionTitles?.featuredSubtitle || 'Les articles les plus demandés et recommandés par nos clients à Dakar et dans les régions.';
+
+  // Extraire les catégories qui contiennent des produits pour les boutons filtres
+  const activeCategories = React.useMemo(() => {
+    return categories.filter(c => {
+      if (c.slug === 'promotions') return false;
+      return products.some(p => p.category === c.slug);
+    });
+  }, [categories, products]);
 
   const filteredProducts = products.filter(p => {
+    if (filter === 'all') return true;
     if (filter === 'promos') return (p.discountPercent && p.discountPercent > 0) || p.isFlashSale;
-    if (filter === 'electronics') return p.category === 'telephones-accessoires' || p.category === 'informatique';
-    if (filter === 'sound_video') return p.category === 'sonorisation-amplificateur' || p.category === 'tv-audio' || p.category === 'photo-video-numerique';
-    if (filter === 'solaire') return p.category === 'solaire-energie';
-    if (filter === 'appliances') return p.category === 'electromenager';
-    return true;
+    return p.category === filter;
   });
 
   return (
@@ -48,14 +58,14 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
               <span>SÉLECTION POPULAIRE AU SÉNÉGAL</span>
             </div>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-gray-900 font-display">
-              🔥 NOS PRODUITS VEDETTES
+              {sectionTitle}
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              Les articles les plus demandés et recommandés par nos clients à Dakar et dans les régions.
+              {sectionSubtitle}
             </p>
           </div>
 
-          {/* Filter Pills */}
+          {/* Filter Pills Dynamiques */}
           <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
             <button
               onClick={() => setFilter('all')}
@@ -65,14 +75,14 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
                   : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
               }`}
             >
-              Tous les Vedettes
+              Tous ({products.length})
             </button>
 
             <button
               onClick={() => setFilter('promos')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 ${
                 filter === 'promos'
-                  ? 'bg-linear-to-r from-red-600 to-orange-600 text-white shadow-md'
+                  ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-md'
                   : 'bg-white text-red-600 hover:bg-red-50 border border-red-200'
               }`}
             >
@@ -80,49 +90,22 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
               <span>Promos</span>
             </button>
 
-            <button
-              onClick={() => setFilter('sound_video')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-                filter === 'sound_video'
-                  ? 'bg-gray-900 text-white shadow-md'
-                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-              }`}
-            >
-              🔊 Sono, TV & Photo
-            </button>
-
-            <button
-              onClick={() => setFilter('solaire')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-                filter === 'solaire'
-                  ? 'bg-gray-900 text-white shadow-md'
-                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-              }`}
-            >
-              ☀️ Solaire & Énergie
-            </button>
-
-            <button
-              onClick={() => setFilter('electronics')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-                filter === 'electronics'
-                  ? 'bg-gray-900 text-white shadow-md'
-                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-              }`}
-            >
-              📱 Téléphonie
-            </button>
-
-            <button
-              onClick={() => setFilter('appliances')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-                filter === 'appliances'
-                  ? 'bg-gray-900 text-white shadow-md'
-                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-              }`}
-            >
-              ❄️ Électroménager
-            </button>
+            {activeCategories.map((c) => {
+              const count = products.filter(p => p.category === c.slug).length;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setFilter(c.slug)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                    filter === c.slug
+                      ? 'bg-gray-900 text-white shadow-md'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                >
+                  {c.name} ({count})
+                </button>
+              );
+            })}
           </div>
         </div>
 

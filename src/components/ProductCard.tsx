@@ -22,6 +22,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const [isShareOpen, setIsShareOpen] = useState(false);
 
+  const config = settings?.homepageConfig;
+  const showWhatsApp = config?.showCardWhatsApp !== false;
+  const showCart = config?.showCardCart !== false;
+  const showBuyNow = config?.showCardBuyNow !== false;
+  const buyBtnText = config?.cardBuyButtonText || 'Acheter';
+  const cartBtnText = config?.cardCartButtonText || 'Au panier';
+  const whatsAppBtnText = config?.cardWhatsAppButtonText || 'WhatsApp';
+
   return (
     <>
       <div 
@@ -79,17 +87,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </button>
 
           {/* Bouton direct Commander via WhatsApp Business */}
-          <a
-            href={createWhatsAppProductMessage(product.name, product.price, product.sku, settings?.whatsappPhone || settings?.phone)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="absolute bottom-2 right-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-2.5 py-1.5 rounded-xl shadow-lg transition flex items-center gap-1.5 text-[11px] font-black z-10"
-            title="Commander directement cet article sur WhatsApp"
-          >
-            <MessageCircle className="w-3.5 h-3.5 fill-white" />
-            <span>WhatsApp</span>
-          </a>
+          {showWhatsApp && (
+            <a
+              href={createWhatsAppProductMessage(product.name, product.price, product.sku, settings?.whatsappPhone || settings?.phone)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="absolute bottom-2 right-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-2.5 py-1.5 rounded-xl shadow-lg transition flex items-center gap-1.5 text-[11px] font-black z-10"
+              title="Commander directement cet article sur WhatsApp"
+            >
+              <MessageCircle className="w-3.5 h-3.5 fill-white" />
+              <span>{whatsAppBtnText}</span>
+            </a>
+          )}
         </div>
 
       {/* Content */}
@@ -126,25 +136,29 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className={`mt-4 pt-3 border-t border-gray-100 grid ${showCart && showBuyNow ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'} gap-2`}>
           
-          <button
-            onClick={(e) => onAddToCart(product, e)}
-            className="w-full py-2.5 px-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 active:scale-95"
-            title="Ajouter au panier"
-          >
-            <ShoppingCart className="w-3.5 h-3.5" />
-            <span className="truncate">Au panier</span>
-          </button>
+          {showCart && (
+            <button
+              onClick={(e) => onAddToCart(product, e)}
+              className="w-full py-2.5 px-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 active:scale-95"
+              title="Ajouter au panier"
+            >
+              <ShoppingCart className="w-3.5 h-3.5" />
+              <span className="truncate">{cartBtnText}</span>
+            </button>
+          )}
 
-          <button
-            onClick={(e) => onBuyNow(product, e)}
-            className="w-full py-2.5 px-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-black rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm shadow-red-600/30 cursor-pointer"
-            title="Acheter directement"
-          >
-            <Zap className="w-3.5 h-3.5 fill-white" />
-            <span className="truncate">Acheter</span>
-          </button>
+          {showBuyNow && (
+            <button
+              onClick={(e) => onBuyNow(product, e)}
+              className="w-full py-2.5 px-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-black rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm shadow-red-600/30 cursor-pointer"
+              title="Acheter directement"
+            >
+              <Zap className="w-3.5 h-3.5 fill-white" />
+              <span className="truncate">{buyBtnText}</span>
+            </button>
+          )}
 
         </div>
       </div>

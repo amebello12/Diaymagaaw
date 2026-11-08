@@ -687,6 +687,58 @@ export const INITIAL_STORE_SETTINGS: StoreSettings = {
   promoBannerBadge: "VENTE FLASH",
   promoBannerBgColor: "red",
   promoBannerButtonText: "Profiter des promos",
-  promoBannerSpeed: "marquee"
+  promoBannerSpeed: "marquee",
+  homepageConfig: {
+    heroBadge: "Efficacité • Rapidité • Fiabilité",
+    heroTitle: "Les bons produits",
+    heroHighlight: "au bon prix.",
+    heroSubtitle: "Découvrez nos produits tendance et profitez de nos meilleures offres au Sénégal. Livraison rapide à Dakar, banlieue et dans toutes les régions.",
+    heroBgImage: "",
+    heroBgGradient: "dark-emerald",
+    heroPrimaryBtnText: "ACHETER MAINTENANT",
+    heroPrimaryBtnAction: "shop",
+    heroSecondaryBtnText: "VOIR LES PROMOTIONS",
+    heroSecondaryBtnAction: "promotions",
+    cardBuyButtonText: "Acheter",
+    cardCartButtonText: "Au panier",
+    cardWhatsAppButtonText: "WhatsApp",
+    showCardWhatsApp: true,
+    showCardCart: true,
+    showCardBuyNow: true,
+    sectionsVisibility: {
+      heroBanner: true,
+      categoryGrid: true,
+      flashSale: true,
+      featuredProducts: true,
+      allProductsCatalog: true,
+      reviews: true,
+      brandPartners: true,
+      trustBadges: true,
+    },
+    sectionOrder: [
+      'heroBanner',
+      'categoryGrid',
+      'flashSale',
+      'featuredProducts',
+      'allProductsCatalog',
+      'reviews',
+      'brandPartners',
+      'trustBadges'
+    ],
+    sectionTitles: {
+      flashSaleTitle: "⚡ PROMO SÉNÉGAL : OFFRES FLASH",
+      flashSaleSubtitle: "Faites défiler le diaporama des meilleures remises au Sénégal. Articles neufs avec garantie, en stock à Dakar.",
+      featuredTitle: "🔥 NOS PRODUITS VEDETTES",
+      featuredSubtitle: "Les articles les plus demandés et recommandés par nos clients au Sénégal.",
+      categoryGridTitle: "Explorez par Catégories",
+      categoryGridSubtitle: "Trouvez les meilleurs équipements électroniques, maison & bien-être au Sénégal.",
+      allProductsTitle: "📦 TOUT LE CATALOGUE DISPONIBLE",
+      allProductsSubtitle: "Tous nos articles testés et certifiés DIAYMA GAAW en stock immédiat à Dakar.",
+      brandPartnersTitle: "Grandes Marques & Partenaires Officiels",
+      reviewsTitle: "Avis Clients Vérifiés",
+      reviewsSubtitle: "Retours d'expérience authentiques de nos acheteurs à Dakar et dans toutes les régions."
+    }
+  }
 };
+
 

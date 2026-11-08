@@ -151,6 +151,61 @@ export interface StoreSettings {
   promoBannerBgColor?: 'red' | 'gold' | 'emerald' | 'dark' | 'blue';
   promoBannerButtonText?: string;
   promoBannerSpeed?: 'marquee' | 'static';
+  // Configuration Personnalisée de la Page d'Accueil (Textes, Fond, Boutons, Disposition)
+  homepageConfig?: HomepageConfig;
+}
+
+export type HeroBgGradientTheme = 'dark-emerald' | 'sunset' | 'deep-blue' | 'classic-dark' | 'electric-purple' | 'midnight-gold';
+
+export interface HomepageConfig {
+  heroBadge?: string;
+  heroTitle?: string;
+  heroHighlight?: string;
+  heroSubtitle?: string;
+  heroBgImage?: string;
+  heroBgGradient?: HeroBgGradientTheme;
+  heroPrimaryBtnText?: string;
+  heroPrimaryBtnAction?: 'shop' | 'promotions' | 'whatsapp' | 'catalog';
+  heroSecondaryBtnText?: string;
+  heroSecondaryBtnAction?: 'promotions' | 'shop' | 'whatsapp' | 'contact';
+  
+  // Product Card Order Buttons
+  cardBuyButtonText?: string;
+  cardCartButtonText?: string;
+  cardWhatsAppButtonText?: string;
+  showCardWhatsApp?: boolean;
+  showCardCart?: boolean;
+  showCardBuyNow?: boolean;
+
+  // Sections Visibility
+  sectionsVisibility?: {
+    heroBanner?: boolean;
+    categoryGrid?: boolean;
+    flashSale?: boolean;
+    featuredProducts?: boolean;
+    allProductsCatalog?: boolean;
+    brandPartners?: boolean;
+    reviews?: boolean;
+    trustBadges?: boolean;
+  };
+
+  // Section Order (Keys of sections to reorder)
+  sectionOrder?: string[];
+
+  // Custom Titles & Subtitles for sections
+  sectionTitles?: {
+    categoryGridTitle?: string;
+    categoryGridSubtitle?: string;
+    flashSaleTitle?: string;
+    flashSaleSubtitle?: string;
+    featuredTitle?: string;
+    featuredSubtitle?: string;
+    allProductsTitle?: string;
+    allProductsSubtitle?: string;
+    brandPartnersTitle?: string;
+    reviewsTitle?: string;
+    reviewsSubtitle?: string;
+  };
 }
 
 export interface VisitorDayStats {

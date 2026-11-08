@@ -120,7 +120,7 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
 // =================== PRODUCTS ===================
 export async function getProducts(): Promise<Product[]> {
   try {
-    const rows = await db.select().from(products);
+    const rows = await db.select().from(products).orderBy(desc(products.updatedAt));
     return rows.map((r) => ({
       id: r.id,
       name: r.name,

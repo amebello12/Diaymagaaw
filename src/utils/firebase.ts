@@ -34,7 +34,7 @@ export function subscribeToProducts(
   const fetchProducts = async () => {
     try {
       updateSyncStatus('syncing');
-      const res = await fetch('/api/products');
+      const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const data: Product[] = await res.json();
       if (active) {
@@ -480,7 +480,7 @@ export function subscribeToStoreSettings(
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch('/api/settings');
+      const res = await fetch(`/api/settings?t=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const data: StoreSettings = await res.json();
       if (active) {
