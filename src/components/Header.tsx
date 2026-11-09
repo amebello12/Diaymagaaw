@@ -172,6 +172,11 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden sm:inline text-emerald-300 font-semibold">
               📱 Wave, Orange Money & Free Money
             </span>
+            <span className="hidden lg:inline text-gray-600">|</span>
+            <span className="hidden lg:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/80 border border-emerald-700/60 text-emerald-300" title="Base de données unique centralisée : Téléphones et Ordinateurs synchronisés en temps réel">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Base Unique Centralisée en Direct ({products.length} articles)
+            </span>
           </div>
 
           <div className="flex items-center gap-3 text-xs">

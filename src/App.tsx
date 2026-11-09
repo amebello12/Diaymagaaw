@@ -77,32 +77,19 @@ import { BrandPartners } from './components/BrandPartners';
 import { Footer } from './components/Footer';
 
 export default function App() {
-  // 1. Core State with Local Storage Synchronization
+  // 1. Core State - Source Unique Centralisée en Temps Réel (Firestore Cloud Database)
   const [products, setProducts] = useState<Product[]>(() => {
     try {
-      if (localStorage.getItem('dg_catalog_cleared') === 'true') {
-        return [];
-      }
       const saved = localStorage.getItem('dg_products');
       if (saved) {
         const parsed: Product[] = JSON.parse(saved);
-        const seenIds = new Set<string>();
-        const uniqueProds: Product[] = [];
-        for (const p of parsed) {
-          if (!p || !p.id || seenIds.has(p.id)) continue;
-          seenIds.add(p.id);
-          const category = p.category === 'tv-home-cinema' 
-            ? 'tv-audio' 
-            : p.category === 'maison' 
-            ? 'electromenager' 
-            : p.category;
-          uniqueProds.push({ ...p, category });
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
         }
-        return uniqueProds;
       }
-      return INITIAL_PRODUCTS;
+      return [];
     } catch {
-      return INITIAL_PRODUCTS;
+      return [];
     }
   });
 
@@ -258,43 +245,13 @@ export default function App() {
       if (time) setLastSyncDate(time);
     });
 
-    // Synchronisation en temps réel des articles du catalogue (fusion résiliente pour garantir la persistance des nouveaux ajouts)
+    // Synchronisation en temps réel de la base unique centralisée (Firestore Cloud Database)
+    // Téléphone 1, Téléphone 2, Téléphone 3, Ordinateur => Tous les appareils reçoivent instantanément le même catalogue
     const unsubProducts = subscribeToProducts((cloudProducts) => {
       if (cloudProducts !== undefined && Array.isArray(cloudProducts)) {
-        setProducts(prevProducts => {
-          const incomingIds = new Set(cloudProducts.map(p => p.id));
-          // Conserver les articles récemment ajoutés localement s'ils n'ont pas encore été renvoyés par la requête polling
-          const pendingLocals = prevProducts.filter(p => !incomingIds.has(p.id) && p.id.startsWith('prod-'));
-          const merged = [...pendingLocals, ...cloudProducts];
-          
-          const seenIds = new Set<string>();
-          const uniqueProds: Product[] = [];
-          for (const p of merged) {
-            if (!p || !p.id || seenIds.has(p.id)) continue;
-            seenIds.add(p.id);
-            const category = p.category === 'tv-home-cinema' 
-              ? 'tv-audio' 
-              : p.category === 'maison' 
-              ? 'electromenager' 
-              : p.category;
-            uniqueProds.push({ ...p, category });
-          }
-
-          try {
-            localStorage.setItem('dg_products', JSON.stringify(uniqueProds));
-            if (uniqueProds.length === 0) {
-              localStorage.setItem('dg_catalog_cleared', 'true');
-            } else {
-              localStorage.removeItem('dg_catalog_cleared');
-            }
-          } catch {
-            // ignore
-          }
-
-          return uniqueProds;
-        });
+        setProducts(cloudProducts);
       }
-    }, INITIAL_PRODUCTS);
+    });
 
     // Synchronisation en temps réel des catégories du catalogue
     const unsubCategories = subscribeToCategories((cloudCats) => {

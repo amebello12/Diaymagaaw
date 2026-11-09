@@ -1056,7 +1056,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   <span className={`w-2 h-2 rounded-full ${
                     syncStatus === 'connected' ? 'bg-emerald-400 animate-ping' : syncStatus === 'syncing' ? 'bg-amber-400' : 'bg-gray-400'
                   }`} />
-                  {syncStatus === 'connected' ? 'Sync Cloud Multi-Appareils : Connecté' : syncStatus === 'syncing' ? 'Synchronisation Cloud...' : 'Local'}
+                  {syncStatus === 'connected' ? 'Base Unique Centralisée (Mobiles & PC) : En direct' : syncStatus === 'syncing' ? 'Synchronisation Cloud...' : 'Hors ligne'}
                 </span>
               </div>
               <p className="text-xs text-gray-400">
