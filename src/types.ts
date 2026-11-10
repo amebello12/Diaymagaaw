@@ -18,6 +18,15 @@ export interface Product {
   brand?: string;
   sku: string;
   warranty?: string;
+  subcategory?: string;
+}
+
+export interface Subcategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  icon?: string;
 }
 
 export interface Category {
@@ -28,6 +37,7 @@ export interface Category {
   image: string;
   itemCount: number;
   description?: string;
+  subcategories?: Subcategory[];
 }
 
 export interface CartItem {

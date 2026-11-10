@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Product, Category, StoreSettings } from '../types';
 import { ProductCard } from './ProductCard';
-import { Filter, SlidersHorizontal, ArrowUpDown, Flame, Check, X, Download } from 'lucide-react';
+import { Filter, SlidersHorizontal, ArrowUpDown, Flame, Check, X, Download, Tag, Layers, Sparkles } from 'lucide-react';
 import { formatFCFA, cleanPhoneForWhatsApp } from '../utils/currency';
 import { ActiveFlame } from './ActiveFlame';
 
@@ -37,6 +37,14 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [sortBy, setSortBy] = useState<'featured' | 'price_asc' | 'price_desc' | 'rating'>('featured');
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [selectedSubcategorySlug, setSelectedSubcategorySlug] = useState<string | null>(null);
+
+  // Reset subcategory filter when category changes
+  useEffect(() => {
+    setSelectedSubcategorySlug(null);
+  }, [selectedCategorySlug]);
+
+  const activeCategoryObject = categories.find((c) => c.slug === selectedCategorySlug);
 
   const filteredProducts = useMemo(() => {
     return products
@@ -48,13 +56,24 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
           if (!p.discountPercent || p.discountPercent <= 0) return false;
         }
 
+        // Subcategory filter
+        if (selectedSubcategorySlug) {
+          const pSub = (p.subcategory || '').toLowerCase().trim();
+          const targetSub = selectedSubcategorySlug.toLowerCase().trim();
+          const targetSlug = targetSub.replace(/[^a-z0-9]+/g, '-');
+          const pSubSlug = pSub.replace(/[^a-z0-9]+/g, '-');
+          const matchSubcat = pSub === targetSub || pSubSlug === targetSlug || pSub.includes(targetSub);
+          if (!matchSubcat) return false;
+        }
+
         // Search query
         if (searchFilter.trim()) {
           const q = searchFilter.toLowerCase();
           const match =
             p.name.toLowerCase().includes(q) ||
             p.category.toLowerCase().includes(q) ||
-            (p.brand && p.brand.toLowerCase().includes(q));
+            (p.brand && p.brand.toLowerCase().includes(q)) ||
+            (p.subcategory && p.subcategory.toLowerCase().includes(q));
           if (!match) return false;
         }
 
@@ -75,56 +94,152 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
         if (sortBy === 'rating') return b.rating - a.rating;
         return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
       });
-  }, [products, selectedCategorySlug, searchFilter, maxPrice, onlyPromos, onlyInStock, sortBy]);
-
-  const activeCategoryObject = categories.find((c) => c.slug === selectedCategorySlug);
+  }, [products, selectedCategorySlug, selectedSubcategorySlug, searchFilter, maxPrice, onlyPromos, onlyInStock, sortBy]);
 
   return (
     <div className="py-8 bg-gray-50/60 min-h-screen font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         
-        {/* Top Breadcrumb & Title */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-gray-200 shadow-xs">
-          <div>
-            <div className="text-xs text-gray-500 font-semibold mb-1">
-              <span>Boutique</span>
-              {activeCategoryObject && (
-                <span> / <strong className="text-red-600">{activeCategoryObject.name}</strong></span>
-              )}
+        {/* Top Breadcrumb & Title Card */}
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-xs space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="text-xs text-gray-500 font-semibold mb-1 flex items-center gap-1.5 flex-wrap">
+                <button 
+                  onClick={() => onSelectCategorySlug(null)}
+                  className="hover:text-red-600 transition cursor-pointer"
+                >
+                  Boutique
+                </button>
+                {activeCategoryObject && (
+                  <>
+                    <span>/</span>
+                    <strong className="text-red-600">{activeCategoryObject.name}</strong>
+                    {selectedSubcategorySlug && (
+                      <>
+                        <span>/</span>
+                        <span className="text-gray-800 font-bold bg-gray-100 px-2 py-0.5 rounded-md">
+                          {activeCategoryObject.subcategories?.find(s => s.slug === selectedSubcategorySlug)?.name || selectedSubcategorySlug}
+                        </span>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-gray-900 font-display flex items-center gap-2">
+                {selectedCategorySlug === 'promotions' && <ActiveFlame size="md" />}
+                <span>{activeCategoryObject ? activeCategoryObject.name : 'Tous les Produits au Sénégal'}</span>
+              </h1>
+              <p className="text-xs text-gray-500 mt-1">
+                Affichage de <strong>{filteredProducts.length}</strong> article(s) disponible(s) en stock immédiat
+              </p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 font-display flex items-center gap-2">
-              {selectedCategorySlug === 'promotions' && <ActiveFlame size="md" />}
-              <span>{activeCategoryObject ? activeCategoryObject.name : 'Tous les Produits au Sénégal'}</span>
-            </h1>
-            <p className="text-xs text-gray-500 mt-1">
-              Affichage de <strong>{filteredProducts.length}</strong> article(s) disponible(s)
-            </p>
-          </div>
 
-          {/* Actions & Sort */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <button
-              onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
-              className="lg:hidden px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
-            >
-              <Filter className="w-4 h-4" />
-              <span>Filtres</span>
-            </button>
-
-            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs">
-              <ArrowUpDown className="w-3.5 h-3.5 text-gray-500" />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-transparent text-gray-900 font-bold focus:outline-none text-xs cursor-pointer"
+            {/* Actions & Sort */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <button
+                onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+                className="lg:hidden px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
               >
-                <option value="featured">Populaires & Vedettes</option>
-                <option value="price_asc">Prix croissant</option>
-                <option value="price_desc">Prix décroissant</option>
-                <option value="rating">Meilleures évaluations</option>
-              </select>
+                <Filter className="w-4 h-4" />
+                <span>Filtres</span>
+              </button>
+
+              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs">
+                <ArrowUpDown className="w-3.5 h-3.5 text-gray-500" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="bg-transparent text-gray-900 font-bold focus:outline-none text-xs cursor-pointer"
+                >
+                  <option value="featured">Populaires & Vedettes</option>
+                  <option value="price_asc">Prix croissant</option>
+                  <option value="price_desc">Prix décroissant</option>
+                  <option value="rating">Meilleures évaluations</option>
+                </select>
+              </div>
             </div>
           </div>
+
+          {/* Category Description Banner */}
+          {activeCategoryObject && activeCategoryObject.description && (
+            <div className="bg-gradient-to-r from-red-50/80 via-amber-50/50 to-emerald-50/40 p-4 sm:p-5 rounded-2xl border border-red-100/90 text-gray-700 text-xs sm:text-sm leading-relaxed flex items-start gap-3">
+              <div className="p-2 bg-white rounded-xl shadow-xs text-red-600 shrink-0 mt-0.5 border border-red-100">
+                <Tag className="w-4 h-4" />
+              </div>
+              <div className="space-y-1">
+                <div className="font-extrabold text-gray-900 text-xs uppercase tracking-wider flex items-center gap-2 flex-wrap">
+                  <span>À propos du rayon {activeCategoryObject.name}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span className="text-[11px] font-bold text-emerald-700">Garantie & Test DIAYMA GAAW</span>
+                </div>
+                <p className="text-gray-700 text-xs sm:text-sm font-medium leading-relaxed">
+                  {activeCategoryObject.description}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Subcategories Navigation Chips */}
+          {activeCategoryObject && activeCategoryObject.subcategories && activeCategoryObject.subcategories.length > 0 && (
+            <div className="pt-3 border-t border-gray-100">
+              <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-red-600" />
+                  <span>Sous-catégories du rayon :</span>
+                </div>
+                {selectedSubcategorySlug && (
+                  <button
+                    onClick={() => setSelectedSubcategorySlug(null)}
+                    className="text-[11px] text-red-600 hover:underline font-bold cursor-pointer"
+                  >
+                    Effacer le filtre sous-catégorie
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                <button
+                  onClick={() => setSelectedSubcategorySlug(null)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                    selectedSubcategorySlug === null
+                      ? 'bg-red-600 text-white shadow-xs'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  Tous ({products.filter(p => p.category === selectedCategorySlug).length})
+                </button>
+                {activeCategoryObject.subcategories.map(subcat => {
+                  const subSlug = subcat.slug || subcat.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                  const count = products.filter(p => 
+                    p.category === selectedCategorySlug && 
+                    p.subcategory && (
+                      p.subcategory.toLowerCase() === subcat.name.toLowerCase() ||
+                      p.subcategory.toLowerCase().replace(/[^a-z0-9]+/g, '-') === subSlug
+                    )
+                  ).length;
+                  const isSelected = selectedSubcategorySlug === subSlug || selectedSubcategorySlug === subcat.name;
+                  return (
+                    <button
+                      key={subcat.id || subcat.slug || subcat.name}
+                      onClick={() => setSelectedSubcategorySlug(isSelected ? null : subSlug)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                        isSelected
+                          ? 'bg-red-600 text-white shadow-xs ring-2 ring-red-400/40'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      <span>{subcat.name}</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                        isSelected ? 'bg-white/20 text-white' : 'bg-white text-gray-600 shadow-2xs'
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

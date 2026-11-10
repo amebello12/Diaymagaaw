@@ -8,7 +8,13 @@ export const INITIAL_CATEGORIES: Category[] = [
     icon: 'Speaker',
     image: 'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=800&auto=format&fit=crop',
     itemCount: 16,
-    description: 'Baffles amplifiés, tables de mixage, amplificateurs de puissance et micros professionnels'
+    description: 'Équipements de sonorisation professionnelle haut de gamme pour salles, mosquées, églises, concerts et cérémonies au Sénégal. Amplificateurs de puissance Ahuja & Behringer, tables de mixage, enceintes amplifiées et microphones sans fil garantis 12 mois.',
+    subcategories: [
+      { id: 'sub-ampli', name: 'Amplificateurs de Puissance', slug: 'amplificateurs' },
+      { id: 'sub-micro', name: 'Microphones & Sans-Fil', slug: 'microphones' },
+      { id: 'sub-enceintes', name: 'Enceintes & Baffles de Scène', slug: 'enceintes' },
+      { id: 'sub-mixage', name: 'Tables de Mixage', slug: 'tables-mixage' }
+    ]
   },
   {
     id: 'solaire-energie',
@@ -17,7 +23,12 @@ export const INITIAL_CATEGORIES: Category[] = [
     icon: 'Sun',
     image: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?q=80&w=800&auto=format&fit=crop',
     itemCount: 22,
-    description: 'Kits solaires complets, panneaux photovoltaïques, onduleurs hybrides et éclairage autonome'
+    description: 'Solutions d’énergie solaire et d’autonomie électrique adaptées au climat du Sénégal. Panneaux solaires photovoltaïques haut rendement, onduleurs hybrides intelligents, batteries gel et lithium haute durabilité avec installation rapide.',
+    subcategories: [
+      { id: 'sub-panneaux', name: 'Panneaux Solaires', slug: 'panneaux-solaires' },
+      { id: 'sub-onduleurs', name: 'Onduleurs & Régulateurs', slug: 'onduleurs' },
+      { id: 'sub-batteries', name: 'Batteries Solaires', slug: 'batteries' }
+    ]
   },
   {
     id: 'photo-video-numerique',
@@ -26,7 +37,12 @@ export const INITIAL_CATEGORIES: Category[] = [
     icon: 'Camera',
     image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=800&auto=format&fit=crop',
     itemCount: 15,
-    description: 'Appareils photo numériques, caméras 4K, stabilisateurs gimbals et éclairages studio'
+    description: 'Matériel photo et vidéo pour créateurs de contenu, studios et passionnés. Boîtiers numériques 4K, stabilisateurs gimbals, éclairages LED studio et objectifs de précision certifiés.',
+    subcategories: [
+      { id: 'sub-cameras', name: 'Appareils Photo & Caméras', slug: 'cameras' },
+      { id: 'sub-stabilisateurs', name: 'Stabilisateurs & Trépieds', slug: 'stabilisateurs' },
+      { id: 'sub-eclairage', name: 'Éclairage Studio & Ring Lights', slug: 'eclairage' }
+    ]
   },
   {
     id: 'telephones-accessoires',
@@ -35,7 +51,12 @@ export const INITIAL_CATEGORIES: Category[] = [
     icon: 'Smartphone',
     image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?q=80&w=800&auto=format&fit=crop',
     itemCount: 24,
-    description: 'Smartphones récents, écouteurs, coques et chargeurs rapides'
+    description: 'Dernières nouveautés smartphones Samsung, Apple, Xiaomi et accessoires haut de gamme. Écrans AMOLED, chargeurs ultra-rapides, écouteurs sans fil et coques antichoc d’origine.',
+    subcategories: [
+      { id: 'sub-smartphones', name: 'Smartphones 5G', slug: 'smartphones' },
+      { id: 'sub-chargeurs', name: 'Chargeurs Rapides & Câbles', slug: 'chargeurs' },
+      { id: 'sub-ecouteurs', name: 'Écouteurs & Casques', slug: 'ecouteurs' }
+    ]
   },
   {
     id: 'informatique',
@@ -44,7 +65,12 @@ export const INITIAL_CATEGORIES: Category[] = [
     icon: 'Laptop',
     image: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?q=80&w=800&auto=format&fit=crop',
     itemCount: 18,
-    description: 'Ordinateurs portables, claviers, souris, écrans et stockage'
+    description: 'Ordinateurs portables performants, ordinateurs de bureau, périphériques gamer et bureautique. Écrans haute définition, disques SSD rapides et claviers mécaniques testés.',
+    subcategories: [
+      { id: 'sub-pc', name: 'PC Portables & Bureautique', slug: 'pc-portables' },
+      { id: 'sub-ecrans', name: 'Écrans & Moniteurs', slug: 'ecrans' },
+      { id: 'sub-stockage', name: 'Disques SSD & Stockage', slug: 'stockage' }
+    ]
   },
   {
     id: 'tv-audio',
@@ -53,7 +79,12 @@ export const INITIAL_CATEGORIES: Category[] = [
     icon: 'Tv',
     image: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?q=80&w=800&auto=format&fit=crop',
     itemCount: 18,
-    description: 'Smart TV 4K/8K, barres de son, home cinéma et enceintes Bluetooth puissantes'
+    description: 'Smart TV 4K/8K avec technologie QLED et OLED, barres de son cinéma et enceintes portables JBL & Sony. Expérience audiovisuelle immersive pour votre salon.',
+    subcategories: [
+      { id: 'sub-smarttv', name: 'Smart TV 4K / 8K', slug: 'smart-tv' },
+      { id: 'sub-barres-son', name: 'Barres de Son & Home Cinéma', slug: 'barres-son' },
+      { id: 'sub-enceintes-bt', name: 'Enceintes Bluetooth', slug: 'enceintes-bluetooth' }
+    ]
   },
   {
     id: 'electromenager',
@@ -62,7 +93,12 @@ export const INITIAL_CATEGORIES: Category[] = [
     icon: 'Refrigerator',
     image: 'https://images.unsplash.com/photo-1570222094114-d054a817e56b?q=80&w=800&auto=format&fit=crop',
     itemCount: 32,
-    description: 'Réfrigérateurs, micro-ondes, mixeurs haute puissance et climatiseurs'
+    description: 'Appareils électroménagers fiables, économiques en énergie et conçus pour durer. Réfrigérateurs no-frost, mixeurs haute puissance, micro-ondes et climatiseurs tropicalisés.',
+    subcategories: [
+      { id: 'sub-frigo', name: 'Réfrigérateurs & Congélateurs', slug: 'refrigerateurs' },
+      { id: 'sub-cuisine', name: 'Mixeurs & Petit Électroménager', slug: 'petit-electromenager' },
+      { id: 'sub-clim', name: 'Climatiseurs & Ventilateurs', slug: 'climatiseurs' }
+    ]
   },
   {
     id: 'sante-bien-etre',
@@ -71,7 +107,11 @@ export const INITIAL_CATEGORIES: Category[] = [
     icon: 'HeartPulse',
     image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=800&auto=format&fit=crop',
     itemCount: 28,
-    description: 'Pistolets de massage, tensiomètres, soins de la peau et diffuseurs'
+    description: 'Matériel de santé à domicile, bien-être et remise en forme. Pistolets de massage, tensiomètres électroniques précis et purificateurs d’air.',
+    subcategories: [
+      { id: 'sub-massage', name: 'Appareils de Massage', slug: 'massage' },
+      { id: 'sub-tensiometres', name: 'Tensiomètres & Santé', slug: 'sante' }
+    ]
   },
   {
     id: 'accessoires',
@@ -80,7 +120,11 @@ export const INITIAL_CATEGORIES: Category[] = [
     icon: 'Headphones',
     image: 'https://images.unsplash.com/photo-1609592424376-7975d9e50e93?q=80&w=800&auto=format&fit=crop',
     itemCount: 40,
-    description: 'Montres connectées, Powerbanks haute capacité et câbles renforcés'
+    description: 'Montres connectées étanches, batteries externes Powerbank haute capacité et câbles renforcés longue durée.',
+    subcategories: [
+      { id: 'sub-montres', name: 'Montres Connectées', slug: 'montres' },
+      { id: 'sub-powerbank', name: 'Powerbanks & Énergie', slug: 'powerbanks' }
+    ]
   },
   {
     id: 'promotions',
@@ -89,7 +133,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     icon: 'Flame',
     image: 'https://images.unsplash.com/photo-1570222094114-d054a817e56b?q=80&w=800&auto=format&fit=crop',
     itemCount: 16,
-    description: 'Réductions exclusives jusqu’à -50% pour un temps limité'
+    description: 'Ventes flash et remises exceptionnelles limitées sur tout le catalogue DIAYMA GAAW avec livraison express à Dakar.'
   }
 ];
 

@@ -32,6 +32,7 @@ import {
   seedInitialProducts,
   subscribeToCategories,
   saveCategoryToFirestore,
+  deleteCategoryFromFirestore,
   seedInitialCategories,
   subscribeToOrders,
   saveOrderToFirestore,
@@ -824,6 +825,43 @@ export default function App() {
   };
 
   /**
+   * Enregistre ou met à jour une catégorie et ses sous-catégories
+   */
+  const handleSaveCategory = async (cat: Category) => {
+    setCategories(prev => {
+      const exists = prev.some(c => c.id === cat.id);
+      const updated = exists ? prev.map(c => c.id === cat.id ? cat : c) : [...prev, cat];
+      try {
+        localStorage.setItem('dg_categories', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    try {
+      await saveCategoryToFirestore(cat);
+    } catch (e) {
+      console.warn('Save category error:', e);
+    }
+  };
+
+  /**
+   * Supprime une catégorie du catalogue
+   */
+  const handleDeleteCategory = async (categoryId: string) => {
+    setCategories(prev => {
+      const updated = prev.filter(c => c.id !== categoryId);
+      try {
+        localStorage.setItem('dg_categories', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    try {
+      await deleteCategoryFromFirestore(categoryId);
+    } catch (e) {
+      console.warn('Delete category error:', e);
+    }
+  };
+
+  /**
    * Remet à zéro les pourcentages de remise et désactive les ventes flash sur tous les articles
    */
   const handleResetProductDiscounts = async () => {
@@ -1217,6 +1255,8 @@ export default function App() {
             onClose={() => handleNavigate('home', null)}
             products={products}
             categories={categoriesWithCounts}
+            onSaveCategory={handleSaveCategory}
+            onDeleteCategory={handleDeleteCategory}
             orders={orders}
             promoCodes={promoCodes}
             deliveryZones={deliveryZones}
@@ -1346,6 +1386,8 @@ export default function App() {
           onClose={() => setAdminModalOpen(false)}
           products={products}
           categories={categoriesWithCounts}
+          onSaveCategory={handleSaveCategory}
+          onDeleteCategory={handleDeleteCategory}
           orders={orders}
           promoCodes={promoCodes}
           deliveryZones={deliveryZones}

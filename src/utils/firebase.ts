@@ -59,9 +59,24 @@ export interface FirestoreErrorInfo {
   };
 }
 
+let quotaExceededState = false;
+
+export function isFirestoreQuotaExceeded(): boolean {
+  return quotaExceededState;
+}
+
+export function setFirestoreQuotaExceeded(val: boolean): void {
+  quotaExceededState = val;
+}
+
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+  const errMessage = error instanceof Error ? error.message : String(error);
+  if (errMessage.includes('Quota exceeded') || errMessage.includes('Quota limit exceeded')) {
+    quotaExceededState = true;
+    updateSyncStatus('offline');
+  }
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -171,7 +186,8 @@ export function subscribeToProducts(
               isNew: Boolean(data.isNew),
               brand: data.brand || 'DIAYMA GAAW',
               sku: data.sku || `DG-${docSnap.id.slice(-6)}`,
-              warranty: data.warranty || 'Garantie 12 Mois'
+              warranty: data.warranty || 'Garantie 12 Mois',
+              subcategory: data.subcategory || undefined
             });
           }
         });
@@ -240,6 +256,7 @@ export async function saveProductToFirestore(product: Product): Promise<void> {
     brand: product.brand || 'DIAYMA GAAW',
     sku: product.sku || `DG-${product.id.slice(-6)}`,
     warranty: product.warranty || 'Garantie 12 Mois',
+    subcategory: product.subcategory || undefined,
   });
 
   try {
@@ -361,7 +378,8 @@ export function subscribeToCategories(
               icon: data.icon || 'Package',
               image: data.image || '',
               itemCount: Number(data.itemCount) || 0,
-              description: data.description || ''
+              description: data.description || '',
+              subcategories: Array.isArray(data.subcategories) ? data.subcategories : []
             });
           }
         });
@@ -391,14 +409,35 @@ export async function saveCategoryToFirestore(cat: Category): Promise<void> {
   const collectionPath = 'categories';
   try {
     const docRef = doc(db, collectionPath, cat.id);
-    await setDoc(docRef, cleanForFirestore(cat), { merge: true });
+    const sanitized = cleanForFirestore({
+      id: cat.id,
+      name: cat.name.trim(),
+      slug: cat.slug || cat.id,
+      icon: cat.icon || 'Package',
+      image: cat.image || '',
+      itemCount: Number(cat.itemCount) || 0,
+      description: cat.description || '',
+      subcategories: Array.isArray(cat.subcategories) ? cat.subcategories : []
+    });
+    await setDoc(docRef, sanitized, { merge: true });
     fetch('/api/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cat),
+      body: JSON.stringify(sanitized),
     }).catch(() => {});
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `${collectionPath}/${cat.id}`);
+  }
+}
+
+export async function deleteCategoryFromFirestore(categoryId: string): Promise<void> {
+  const collectionPath = 'categories';
+  try {
+    const docRef = doc(db, collectionPath, categoryId);
+    await deleteDoc(docRef);
+    fetch(`/api/categories/${categoryId}`, { method: 'DELETE' }).catch(() => {});
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `${collectionPath}/${categoryId}`);
   }
 }
 
@@ -792,8 +831,4 @@ export async function saveStoreSettingsToFirestore(settings: StoreSettings): Pro
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, docPath);
   }
-}
-
-export function isFirestoreQuotaExceeded(): boolean {
-  return false;
 }

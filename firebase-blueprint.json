@@ -23,7 +23,8 @@
         "isNew": { "type": "boolean" },
         "brand": { "type": "string", "maxLength": 100 },
         "sku": { "type": "string", "maxLength": 100 },
-        "warranty": { "type": "string", "maxLength": 200 }
+        "warranty": { "type": "string", "maxLength": 200 },
+        "subcategory": { "type": "string", "maxLength": 100 }
       },
       "required": ["id", "name", "category", "price", "stock", "description"]
     },
@@ -38,7 +39,8 @@
         "icon": { "type": "string", "maxLength": 100 },
         "image": { "type": "string", "maxLength": 1000 },
         "itemCount": { "type": "number" },
-        "description": { "type": "string", "maxLength": 500 }
+        "description": { "type": "string", "maxLength": 2000 },
+        "subcategories": { "type": "array" }
       },
       "required": ["id", "name", "slug"]
     },

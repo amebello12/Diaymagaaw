@@ -53,11 +53,19 @@ import {
   MoveUp,
   MoveDown,
   Palette,
-  Sliders
+  Sliders,
+  FolderTree,
+  PlusCircle,
+  Speaker,
+  Tv,
+  Sun,
+  Zap,
+  Camera,
+  HeartPulse
 } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { PromoAnnouncementBanner } from './PromoAnnouncementBanner';
-import { Product, Category, Order, PromoCode, DeliveryZone, StoreSettings, Review, VisitorStats, HomepageConfig, HeroBgGradientTheme } from '../types';
+import { Product, Category, Subcategory, Order, PromoCode, DeliveryZone, StoreSettings, Review, VisitorStats, HomepageConfig, HeroBgGradientTheme } from '../types';
 import { formatFCFA, STORE_PHONE_RAW, formatPhoneNumber, cleanPhoneForWhatsApp } from '../utils/currency';
 import { INITIAL_STORE_SETTINGS } from '../data/initialData';
 import { WaveLogo, OrangeMoneyLogo, FreeMoneyLogo, CashOnDeliveryLogo } from './PaymentLogos';
@@ -129,6 +137,8 @@ interface AdminPanelModalProps {
   onClose: () => void;
   products: Product[];
   categories: Category[];
+  onSaveCategory?: (category: Category) => void;
+  onDeleteCategory?: (categoryId: string) => void;
   orders: Order[];
   promoCodes?: PromoCode[];
   deliveryZones?: DeliveryZone[];
@@ -173,6 +183,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onClose,
   products,
   categories,
+  onSaveCategory,
+  onDeleteCategory,
   orders,
   promoCodes = [],
   deliveryZones = [],
@@ -238,7 +250,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Tabs
-  const [tab, setTab] = useState<'dashboard' | 'products' | 'orders' | 'promos' | 'delivery' | 'reviews' | 'whatsapp' | 'settings' | 'homepage'>('dashboard');
+  const [tab, setTab] = useState<'dashboard' | 'products' | 'categories' | 'orders' | 'promos' | 'delivery' | 'reviews' | 'whatsapp' | 'settings' | 'homepage'>('dashboard');
 
   // Product Filtering & Form State
   const [productSearch, setProductSearch] = useState('');
@@ -249,7 +261,21 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   // Form fields for Add/Edit Product
   const [formName, setFormName] = useState('');
   const [formCategory, setFormCategory] = useState(categories[0]?.slug || 'telephones-accessoires');
+  const [formSubcategory, setFormSubcategory] = useState('');
   const [formPrice, setFormPrice] = useState(25000);
+
+  // Category & Subcategory Management State
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
+  const [catFormName, setCatFormName] = useState('');
+  const [catFormSlug, setCatFormSlug] = useState('');
+  const [catFormIcon, setCatFormIcon] = useState('Package');
+  const [catFormImage, setCatFormImage] = useState('');
+  const [catFormDescription, setCatFormDescription] = useState('');
+  const [catFormSubcategories, setCatFormSubcategories] = useState<Subcategory[]>([]);
+  const [newSubcategoryName, setNewSubcategoryName] = useState('');
+  const [categoryFeedback, setCategoryFeedback] = useState<string | null>(null);
+  const [deleteCatConfirmId, setDeleteCatConfirmId] = useState<string | null>(null);
   const [formOriginalPrice, setFormOriginalPrice] = useState(35000);
   const [formStock, setFormStock] = useState(10);
   const [formImageUrl, setFormImageUrl] = useState('');
@@ -738,6 +764,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setIsAddingNewProduct(false);
     setFormName(prod.name);
     setFormCategory(prod.category);
+    setFormSubcategory(prod.subcategory || '');
     setFormPrice(prod.price);
     setFormOriginalPrice(prod.originalPrice || prod.price);
     setFormStock(prod.stock);
@@ -759,6 +786,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setEditingProduct(null);
     setFormName('');
     setFormCategory(categories[0]?.slug || 'telephones-accessoires');
+    setFormSubcategory('');
     setFormPrice(15000);
     setFormOriginalPrice(20000);
     setFormStock(15);
@@ -908,11 +936,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         isFlashSale: formIsFlashSale,
         brand: formBrand.trim(),
         sku: formSku.trim() || `DG-SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-        warranty: formWarranty.trim()
+        warranty: formWarranty.trim(),
+        subcategory: formSubcategory.trim() || undefined
       };
       onAddProduct(newProd);
       setIsAddingNewProduct(false);
       setFormName('');
+      setFormSubcategory('');
       setFormImages([]);
       setFormImageUrl('');
       setFormDescription('');
@@ -925,6 +955,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         ...editingProduct,
         name: formName.trim(),
         category: formCategory,
+        subcategory: formSubcategory.trim() || undefined,
         price: Number(formPrice),
         originalPrice: Number(formOriginalPrice),
         discountPercent,
@@ -940,11 +971,103 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       onUpdateProduct(updated);
       setEditingProduct(null);
       setFormName('');
+      setFormSubcategory('');
       setFormImages([]);
       setFormImageUrl('');
       setProductFeedback(`✅ Modifications de « ${updated.name} » publiées en direct ! Immédiatement visibles par tous les visiteurs sur le site.`);
       setTimeout(() => setProductFeedback(null), 6000);
     }
+  };
+
+  // Category & Subcategory Handlers
+  const startAddNewCategory = () => {
+    setIsAddingNewCategory(true);
+    setEditingCategory(null);
+    setCatFormName('');
+    setCatFormSlug('');
+    setCatFormIcon('Package');
+    setCatFormImage('https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=800&auto=format&fit=crop');
+    setCatFormDescription('');
+    setCatFormSubcategories([]);
+    setNewSubcategoryName('');
+    setCategoryFeedback(null);
+  };
+
+  const startEditCategory = (cat: Category) => {
+    setEditingCategory(cat);
+    setIsAddingNewCategory(false);
+    setCatFormName(cat.name);
+    setCatFormSlug(cat.slug);
+    setCatFormIcon(cat.icon || 'Package');
+    setCatFormImage(cat.image || '');
+    setCatFormDescription(cat.description || '');
+    setCatFormSubcategories(Array.isArray(cat.subcategories) ? [...cat.subcategories] : []);
+    setNewSubcategoryName('');
+    setCategoryFeedback(null);
+  };
+
+  const handleAddSubcategoryToForm = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newSubcategoryName.trim()) return;
+    const name = newSubcategoryName.trim();
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `sub-${Date.now()}`;
+    if (catFormSubcategories.some(s => s.slug === slug || s.name.toLowerCase() === name.toLowerCase())) {
+      setCategoryFeedback("Cette sous-catégorie existe déjà dans la liste.");
+      setTimeout(() => setCategoryFeedback(null), 3000);
+      return;
+    }
+    const newSub: Subcategory = {
+      id: `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      name,
+      slug
+    };
+    setCatFormSubcategories(prev => [...prev, newSub]);
+    setNewSubcategoryName('');
+  };
+
+  const handleRemoveSubcategoryFromForm = (subSlugOrId: string) => {
+    setCatFormSubcategories(prev => prev.filter(s => s.id !== subSlugOrId && s.slug !== subSlugOrId));
+  };
+
+  const handleSaveCategorySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catFormName.trim()) {
+      setCategoryFeedback("Veuillez saisir un nom pour la catégorie.");
+      return;
+    }
+    const slug = catFormSlug.trim() 
+      ? catFormSlug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      : catFormName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+    const id = editingCategory ? editingCategory.id : (slug || `cat-${Date.now()}`);
+
+    const catToSave: Category = {
+      id,
+      name: catFormName.trim(),
+      slug,
+      icon: catFormIcon || 'Package',
+      image: catFormImage.trim() || 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=800&q=80',
+      itemCount: editingCategory ? editingCategory.itemCount : 0,
+      description: catFormDescription.trim(),
+      subcategories: catFormSubcategories
+    };
+
+    if (onSaveCategory) {
+      onSaveCategory(catToSave);
+      setCategoryFeedback(`✅ Le rayon « ${catToSave.name} » et ses sous-catégories ont été synchronisés avec succès en direct !`);
+      setTimeout(() => setCategoryFeedback(null), 5000);
+    }
+    setIsAddingNewCategory(false);
+    setEditingCategory(null);
+  };
+
+  const handleDeleteCategoryAction = (catId: string) => {
+    if (onDeleteCategory) {
+      onDeleteCategory(catId);
+      setCategoryFeedback(`🗑️ La catégorie a été supprimée du catalogue.`);
+      setTimeout(() => setCategoryFeedback(null), 4000);
+    }
+    setDeleteCatConfirmId(null);
   };
 
   // Add Promo Code
@@ -1243,6 +1366,20 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     {lowStockProducts.length} alerte
                   </span>
                 )}
+              </button>
+
+              <button
+                onClick={() => {
+                  setTab('categories');
+                  setIsAddingNewCategory(false);
+                  setEditingCategory(null);
+                }}
+                className={`py-3.5 px-4 text-xs font-bold transition border-b-2 whitespace-nowrap flex items-center gap-2 ${
+                  tab === 'categories' ? 'border-red-600 text-red-600 bg-white shadow-xs' : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Layers className="w-4 h-4 text-red-600" />
+                <span>Catégories & Rayons ({categories.length})</span>
               </button>
 
               <button
@@ -2270,13 +2407,45 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           <label className="block text-xs font-bold text-gray-700 mb-1">Catégorie / Rayon *</label>
                           <select
                             value={formCategory}
-                            onChange={(e) => setFormCategory(e.target.value)}
+                            onChange={(e) => {
+                              setFormCategory(e.target.value);
+                              setFormSubcategory('');
+                            }}
                             className="w-full px-3 py-2 bg-white rounded-xl border border-gray-300 text-xs focus:outline-none focus:border-red-600"
                           >
                             {categories.map((c) => (
                               <option key={c.id} value={c.slug}>{c.name}</option>
                             ))}
                           </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">
+                            Sous-catégorie
+                            {categories.find(c => c.slug === formCategory)?.subcategories?.length ? (
+                              <span className="text-emerald-600 font-semibold ml-1">({categories.find(c => c.slug === formCategory)?.subcategories?.length} dispo)</span>
+                            ) : null}
+                          </label>
+                          {categories.find(c => c.slug === formCategory)?.subcategories?.length ? (
+                            <select
+                              value={formSubcategory}
+                              onChange={(e) => setFormSubcategory(e.target.value)}
+                              className="w-full px-3 py-2 bg-white rounded-xl border border-gray-300 text-xs focus:outline-none focus:border-red-600"
+                            >
+                              <option value="">-- Aucune / Rayon principal --</option>
+                              {categories.find(c => c.slug === formCategory)?.subcategories?.map((sub) => (
+                                <option key={sub.id || sub.slug} value={sub.slug}>{sub.name}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              value={formSubcategory}
+                              onChange={(e) => setFormSubcategory(e.target.value)}
+                              placeholder="ex: Amplificateurs, Micros..."
+                              className="w-full px-3 py-2 bg-white rounded-xl border border-gray-300 text-xs focus:outline-none focus:border-red-600"
+                            />
+                          )}
                         </div>
 
                         <div>
@@ -2782,6 +2951,430 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     ) : null}
                   </div>
 
+                </div>
+              )}
+
+              {/* TAB: CATEGORIES & SUBCATEGORIES MANAGEMENT */}
+              {tab === 'categories' && (
+                <div className="space-y-6">
+                  {/* Top Bar with Header & Add Button */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-gray-200/80 shadow-xs">
+                    <div>
+                      <h3 className="text-base sm:text-lg font-black text-gray-900 font-display flex items-center gap-2">
+                        <Layers className="w-5 h-5 text-red-600" />
+                        <span>Gestion des Catégories, Sous-Catégories & Descriptions</span>
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Ajoutez des rayons, enrichissez les descriptions de page pour vos clients et structurez vos sous-catégories en temps réel sur tous les appareils.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={startAddNewCategory}
+                      className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Ajouter un Rayon / Catégorie</span>
+                    </button>
+                  </div>
+
+                  {/* Feedback Message */}
+                  {categoryFeedback && (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl flex items-center gap-2 shadow-xs animate-in fade-in">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{categoryFeedback}</span>
+                    </div>
+                  )}
+
+                  {/* Delete Confirmation Modal/Banner */}
+                  {deleteCatConfirmId && (
+                    <div className="p-4 bg-red-50 border-2 border-red-300 rounded-3xl space-y-3 animate-in fade-in">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="text-sm font-black text-red-900">
+                            Confirmer la suppression du rayon « {categories.find(c => c.id === deleteCatConfirmId)?.name} » ?
+                          </h4>
+                          <p className="text-xs text-red-700 mt-1">
+                            Cette action supprimera cette catégorie et ses sous-catégories associées dans la base de données centrale. Les articles déjà enregistrés conserveront leur fiche mais devront être réassignés si vous souhaitez les afficher dans un autre rayon.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 justify-end pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setDeleteCatConfirmId(null)}
+                          className="px-3.5 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition cursor-pointer"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCategoryAction(deleteCatConfirmId)}
+                          className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Confirmer la suppression</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Form for Add or Edit Category */}
+                  {(isAddingNewCategory || editingCategory) && (
+                    <form onSubmit={handleSaveCategorySubmit} className="p-6 bg-gradient-to-br from-red-50/50 via-white to-amber-50/30 rounded-3xl border-2 border-red-200 shadow-sm space-y-5 animate-in fade-in">
+                      <div className="flex items-center justify-between pb-3 border-b border-red-200">
+                        <h4 className="font-black text-sm text-gray-900 flex items-center gap-2">
+                          {isAddingNewCategory ? (
+                            <>
+                              <PlusCircle className="w-5 h-5 text-red-600" />
+                              <span>Création d'une Nouvelle Catégorie / Rayon</span>
+                            </>
+                          ) : (
+                            <>
+                              <Edit3 className="w-5 h-5 text-blue-600" />
+                              <span>Modification de la Catégorie : {editingCategory?.name}</span>
+                            </>
+                          )}
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingNewCategory(false);
+                            setEditingCategory(null);
+                          }}
+                          className="text-xs font-bold text-gray-500 hover:text-gray-800 cursor-pointer"
+                        >
+                          ✕ Fermer
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="lg:col-span-2">
+                          <label className="block text-xs font-bold text-gray-700 mb-1">
+                            Nom du Rayon / Catégorie *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={catFormName}
+                            onChange={(e) => {
+                              setCatFormName(e.target.value);
+                              if (isAddingNewCategory) {
+                                setCatFormSlug(e.target.value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+                              }
+                            }}
+                            placeholder="ex: Sonorisation & Amplificateurs Professionnels"
+                            className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-gray-300 text-xs font-semibold focus:outline-none focus:border-red-600"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">
+                            Identifiant Slug (URL & Référencement)
+                          </label>
+                          <input
+                            type="text"
+                            value={catFormSlug}
+                            onChange={(e) => setCatFormSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-'))}
+                            placeholder="ex: sonorisation-pro"
+                            className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-gray-300 text-xs font-mono focus:outline-none focus:border-red-600"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">
+                            Icône Représentative
+                          </label>
+                          <select
+                            value={catFormIcon}
+                            onChange={(e) => setCatFormIcon(e.target.value)}
+                            className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-gray-300 text-xs focus:outline-none focus:border-red-600"
+                          >
+                            <option value="Speaker">🔊 Speaker (Sonorisation, Baffles, Audio)</option>
+                            <option value="Tv">📺 Tv (Téléviseurs, Home Cinéma)</option>
+                            <option value="Smartphone">📱 Smartphone (Téléphones & Mobiles)</option>
+                            <option value="Laptop">💻 Laptop (Informatique & Ordinateurs)</option>
+                            <option value="Camera">📷 Camera (Photo & Vidéo Numérique)</option>
+                            <option value="Sun">☀️ Sun (Solaire & Énergie)</option>
+                            <option value="Zap">⚡ Zap (Électronique, Énergie)</option>
+                            <option value="Sparkles">✨ Sparkles (Promotions, Événements)</option>
+                            <option value="HeartPulse">🩺 HeartPulse (Santé & Bien-être)</option>
+                            <option value="Package">📦 Package (Accessoires & Divers)</option>
+                          </select>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-bold text-gray-700 mb-1">
+                            URL de l'image d'illustration (Bannière / Couverture)
+                          </label>
+                          <input
+                            type="url"
+                            value={catFormImage}
+                            onChange={(e) => setCatFormImage(e.target.value)}
+                            placeholder="https://images.unsplash.com/..."
+                            className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-gray-300 text-xs focus:outline-none focus:border-red-600"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Category Page Description */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-extrabold text-gray-800">
+                          Description de la Page du Rayon (Visible par les visiteurs) *
+                        </label>
+                        <p className="text-[11px] text-gray-500">
+                          Cette description apparaîtra en haut de la page de la catégorie lorsque les clients naviguent sur le site. Rédigez un texte explicatif valorisant les marques (Ahuja, JBL, etc.), la garantie 12 mois et les conditions de livraison rapide à Dakar.
+                        </p>
+                        <textarea
+                          rows={3}
+                          value={catFormDescription}
+                          onChange={(e) => setCatFormDescription(e.target.value)}
+                          placeholder="ex: Découvrez notre sélection professionnelle d'équipements de sonorisation et d'amplification certifiés DIAYMA GAAW. Amplificateurs haute puissance Ahuja, tables de mixage Behringer et micros sans fil garantis 12 mois, livrés en express à Dakar et dans tout le Sénégal."
+                          className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-gray-300 text-xs leading-relaxed focus:outline-none focus:border-red-600 font-medium"
+                        />
+                      </div>
+
+                      {/* Subcategories Management */}
+                      <div className="p-4 bg-white rounded-2xl border border-gray-200/90 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-extrabold text-gray-900 flex items-center gap-2">
+                            <FolderTree className="w-4 h-4 text-red-600" />
+                            <span>Sous-Catégories associées à ce rayon ({catFormSubcategories.length})</span>
+                          </label>
+                          <span className="text-[11px] text-gray-400">
+                            Ex: Amplificateurs, Micros sans fil, Baffles amplifiés...
+                          </span>
+                        </div>
+
+                        {/* Inline input to add a subcategory */}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={newSubcategoryName}
+                            onChange={(e) => setNewSubcategoryName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddSubcategoryToForm();
+                              }
+                            }}
+                            placeholder="Nom de la sous-catégorie (ex: Amplificateurs de puissance)"
+                            className="flex-1 px-3 py-2 bg-gray-50 rounded-xl border border-gray-300 text-xs focus:outline-none focus:border-red-600"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddSubcategoryToForm}
+                            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Ajouter</span>
+                          </button>
+                        </div>
+
+                        {/* Subcategories Chip List */}
+                        {catFormSubcategories.length > 0 ? (
+                          <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+                            {catFormSubcategories.map((sub) => (
+                              <span
+                                key={sub.id || sub.slug}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-xs font-bold"
+                              >
+                                <Tag className="w-3 h-3 text-red-500" />
+                                <span>{sub.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSubcategoryFromForm(sub.id || sub.slug)}
+                                  className="w-4 h-4 rounded-full bg-red-200 hover:bg-red-300 text-red-800 flex items-center justify-center text-[10px] ml-1 cursor-pointer transition"
+                                  title="Supprimer cette sous-catégorie"
+                                >
+                                  ✕
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-400 italic pt-1">
+                            Aucune sous-catégorie pour le moment. Vous pouvez en ajouter ci-dessus ou laisser le rayon général.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-end gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingNewCategory(false);
+                            setEditingCategory(null);
+                          }}
+                          className="px-4 py-2.5 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition cursor-pointer"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl shadow-md shadow-red-600/20 transition flex items-center gap-2 cursor-pointer"
+                        >
+                          <Save className="w-4 h-4" />
+                          <span>Enregistrer la Catégorie & Sous-Catégories</span>
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Grid of Categories */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {categories.map((cat) => {
+                      const associatedCount = products.filter(p => p.category === cat.slug).length;
+                      return (
+                        <div
+                          key={cat.id || cat.slug}
+                          className="bg-white p-5 rounded-3xl border border-gray-200 shadow-xs hover:border-gray-300 transition space-y-4"
+                        >
+                          {/* Card Header */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-2xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200 relative flex items-center justify-center">
+                                {cat.image ? (
+                                  <img
+                                    src={cat.image}
+                                    alt={cat.name}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLElement).style.display = 'none';
+                                    }}
+                                  />
+                                ) : (
+                                  <Layers className="w-6 h-6 text-gray-400" />
+                                )}
+                              </div>
+                              <div>
+                                <h4 className="font-black text-sm text-gray-900 font-display flex items-center gap-2">
+                                  <span>{cat.name}</span>
+                                </h4>
+                                <div className="flex items-center gap-2 text-[11px] text-gray-400 mt-0.5">
+                                  <span className="font-mono bg-gray-100 px-1.5 py-0.2 rounded text-[10px] text-gray-600">
+                                    /{cat.slug}
+                                  </span>
+                                  <span>•</span>
+                                  <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.2 rounded-full border border-emerald-200/60">
+                                    {associatedCount} article(s)
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => startEditCategory(cat)}
+                                className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition cursor-pointer"
+                                title="Modifier la catégorie, sa description et ses sous-catégories"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteCatConfirmId(cat.id)}
+                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition cursor-pointer"
+                                title="Supprimer la catégorie"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Page Description Preview */}
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">
+                              Description de la page rayon :
+                            </span>
+                            {cat.description ? (
+                              <p className="text-xs text-gray-700 font-medium leading-relaxed bg-gray-50/80 p-3 rounded-2xl border border-gray-100 line-clamp-3">
+                                {cat.description}
+                              </p>
+                            ) : (
+                              <div className="p-2.5 bg-amber-50/60 text-amber-800 text-[11px] rounded-xl border border-amber-200/60 flex items-center justify-between">
+                                <span>Aucune description configurée</span>
+                                <button
+                                  type="button"
+                                  onClick={() => startEditCategory(cat)}
+                                  className="text-amber-900 font-bold hover:underline cursor-pointer"
+                                >
+                                  + Rédiger
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Subcategories Section */}
+                          <div className="pt-3 border-t border-gray-100 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                                <FolderTree className="w-3 h-3 text-red-600" />
+                                <span>Sous-catégories ({cat.subcategories?.length || 0})</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => startEditCategory(cat)}
+                                className="text-[11px] font-bold text-red-600 hover:text-red-700 cursor-pointer flex items-center gap-1"
+                              >
+                                <Plus className="w-3 h-3" />
+                                <span>Gérer</span>
+                              </button>
+                            </div>
+
+                            {cat.subcategories && cat.subcategories.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {cat.subcategories.map((sub) => {
+                                  const subCount = products.filter(p => 
+                                    p.category === cat.slug && 
+                                    p.subcategory && (
+                                      p.subcategory.toLowerCase() === sub.name.toLowerCase() ||
+                                      p.subcategory.toLowerCase().replace(/[^a-z0-9]+/g, '-') === sub.slug
+                                    )
+                                  ).length;
+                                  return (
+                                    <span
+                                      key={sub.id || sub.slug}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 hover:bg-gray-200/80 text-gray-800 rounded-lg text-[11px] font-bold transition"
+                                    >
+                                      <span>{sub.name}</span>
+                                      <span className="text-[10px] font-normal text-gray-500">({subCount})</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updatedSubs = (cat.subcategories || []).filter(s => s.id !== sub.id && s.slug !== sub.slug);
+                                          const updatedCat: Category = {
+                                            ...cat,
+                                            subcategories: updatedSubs
+                                          };
+                                          if (onSaveCategory) {
+                                            onSaveCategory(updatedCat);
+                                          }
+                                        }}
+                                        className="text-gray-400 hover:text-red-600 text-[10px] ml-0.5 cursor-pointer"
+                                        title="Supprimer cette sous-catégorie"
+                                      >
+                                        ✕
+                                      </button>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-gray-400 italic">
+                                Aucune sous-catégorie configurée
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
