@@ -87,7 +87,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <div className="flex items-center gap-2 text-xs text-gray-500 font-medium truncate">
             <span>Accueil</span>
             <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-            <span className="capitalize">{product.category.replace('-', ' ')}</span>
+            <span className="capitalize">{product.category.replace(/-/g, ' ')}</span>
+            {product.subcategory && (
+              <>
+                <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                <span className="text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded">{product.subcategory}</span>
+              </>
+            )}
             <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
             <span className="text-gray-900 font-bold truncate max-w-xs">{product.name}</span>
           </div>
@@ -161,9 +167,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               
               <div>
                 <div className="flex items-center justify-between text-xs text-gray-500 font-semibold mb-1">
-                  <span className="uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded">
-                    {product.brand || 'Boutique DIAYMA GAAW'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded font-bold">
+                      {product.brand || 'Boutique DIAYMA GAAW'}
+                    </span>
+                    {product.subcategory && (
+                      <span className="text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded font-bold text-[11px]">
+                        Rayon : {product.subcategory}
+                      </span>
+                    )}
+                  </div>
                   <span>RÉF : {product.sku}</span>
                 </div>
 

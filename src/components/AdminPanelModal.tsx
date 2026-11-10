@@ -255,6 +255,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   // Product Filtering & Form State
   const [productSearch, setProductSearch] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState('all');
+  const [productSubcategoryFilter, setProductSubcategoryFilter] = useState('all');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAddingNewProduct, setIsAddingNewProduct] = useState(false);
 
@@ -262,6 +263,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [formName, setFormName] = useState('');
   const [formCategory, setFormCategory] = useState(categories[0]?.slug || 'telephones-accessoires');
   const [formSubcategory, setFormSubcategory] = useState('');
+  const [isCustomSubcategory, setIsCustomSubcategory] = useState(false);
+  const [customSubcategoryInput, setCustomSubcategoryInput] = useState('');
+  const [persistSubcatToCategory, setPersistSubcatToCategory] = useState(true);
   const [formPrice, setFormPrice] = useState(25000);
 
   // Category & Subcategory Management State
@@ -765,6 +769,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setFormName(prod.name);
     setFormCategory(prod.category);
     setFormSubcategory(prod.subcategory || '');
+    setIsCustomSubcategory(false);
+    setCustomSubcategoryInput('');
     setFormPrice(prod.price);
     setFormOriginalPrice(prod.originalPrice || prod.price);
     setFormStock(prod.stock);
@@ -787,6 +793,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setFormName('');
     setFormCategory(categories[0]?.slug || 'telephones-accessoires');
     setFormSubcategory('');
+    setIsCustomSubcategory(false);
+    setCustomSubcategoryInput('');
     setFormPrice(15000);
     setFormOriginalPrice(20000);
     setFormStock(15);
@@ -911,6 +919,39 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       ? Math.round(((formOriginalPrice - formPrice) / formOriginalPrice) * 100)
       : undefined;
 
+    // Détermination de la sous-catégorie effective
+    const effectiveSubcategory = (isCustomSubcategory ? customSubcategoryInput : formSubcategory).trim();
+
+    // Si une nouvelle sous-catégorie personnalisée a été saisie, l'ajouter de façon permanente au rayon sélectionné
+    if (isCustomSubcategory && customSubcategoryInput.trim() && persistSubcatToCategory && onSaveCategory) {
+      const activeCat = categories.find(c => c.slug === formCategory);
+      if (activeCat) {
+        const newSubName = customSubcategoryInput.trim();
+        const newSubSlug = newSubName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const alreadyExists = activeCat.subcategories?.some(
+          s => s.slug === newSubSlug || s.name.toLowerCase() === newSubName.toLowerCase()
+        );
+        if (!alreadyExists) {
+          const updatedSubcategories: Subcategory[] = [
+            ...(activeCat.subcategories || []),
+            {
+              id: 'sub-' + Date.now(),
+              name: newSubName,
+              slug: newSubSlug,
+              description: `Articles ${newSubName} du rayon ${activeCat.name}`
+            }
+          ];
+          onSaveCategory({
+            ...activeCat,
+            subcategories: updatedSubcategories
+          });
+        }
+      }
+    }
+
+    const categoryObj = categories.find(c => c.slug === formCategory);
+    const categoryName = categoryObj?.name || formCategory;
+
     if (isAddingNewProduct) {
       const timestamp = Date.now();
       const baseSlug = formName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'article';
@@ -919,6 +960,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         name: formName.trim(),
         slug: `${baseSlug}-${timestamp.toString().slice(-4)}`,
         category: formCategory,
+        subcategory: effectiveSubcategory || undefined,
         price: Number(formPrice),
         originalPrice: Number(formOriginalPrice),
         discountPercent,
@@ -936,26 +978,27 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         isFlashSale: formIsFlashSale,
         brand: formBrand.trim(),
         sku: formSku.trim() || `DG-SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-        warranty: formWarranty.trim(),
-        subcategory: formSubcategory.trim() || undefined
+        warranty: formWarranty.trim()
       };
       onAddProduct(newProd);
       setIsAddingNewProduct(false);
       setFormName('');
       setFormSubcategory('');
+      setIsCustomSubcategory(false);
+      setCustomSubcategoryInput('');
       setFormImages([]);
       setFormImageUrl('');
       setFormDescription('');
       setFormPrice(25000);
       setFormOriginalPrice(35000);
-      setProductFeedback(`✅ L'article « ${newProd.name} » est publié et immédiatement visible par tous les clients et visiteurs sur le site en direct !`);
+      setProductFeedback(`✅ L'article « ${newProd.name} » est publié dans le rayon « ${categoryName} »${effectiveSubcategory ? ` (sous-catégorie : ${effectiveSubcategory})` : ''} et immédiatement visible par tous les visiteurs sur le site !`);
       setTimeout(() => setProductFeedback(null), 6000);
     } else if (editingProduct) {
       const updated: Product = {
         ...editingProduct,
         name: formName.trim(),
         category: formCategory,
-        subcategory: formSubcategory.trim() || undefined,
+        subcategory: effectiveSubcategory || undefined,
         price: Number(formPrice),
         originalPrice: Number(formOriginalPrice),
         discountPercent,
@@ -972,9 +1015,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       setEditingProduct(null);
       setFormName('');
       setFormSubcategory('');
+      setIsCustomSubcategory(false);
+      setCustomSubcategoryInput('');
       setFormImages([]);
       setFormImageUrl('');
-      setProductFeedback(`✅ Modifications de « ${updated.name} » publiées en direct ! Immédiatement visibles par tous les visiteurs sur le site.`);
+      setProductFeedback(`✅ Modifications de « ${updated.name} » publiées en direct (Rayon : ${categoryName}${effectiveSubcategory ? ` > ${effectiveSubcategory}` : ''}) !`);
       setTimeout(() => setProductFeedback(null), 6000);
     }
   };
@@ -1133,7 +1178,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase()) || 
                           p.sku.toLowerCase().includes(productSearch.toLowerCase());
     const matchesCategory = productCategoryFilter === 'all' || p.category === productCategoryFilter;
-    return matchesSearch && matchesCategory;
+    const matchesSubcategory = productSubcategoryFilter === 'all' || (
+      p.subcategory && (
+        p.subcategory.toLowerCase() === productSubcategoryFilter.toLowerCase() ||
+        p.subcategory.toLowerCase().replace(/[^a-z0-9]+/g, '-') === productSubcategoryFilter.toLowerCase()
+      )
+    );
+    return matchesSearch && matchesCategory && matchesSubcategory;
   });
 
   // Filtered Orders
@@ -2126,7 +2177,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       </div>
                       <select
                         value={productCategoryFilter}
-                        onChange={(e) => setProductCategoryFilter(e.target.value)}
+                        onChange={(e) => {
+                          setProductCategoryFilter(e.target.value);
+                          setProductSubcategoryFilter('all');
+                        }}
                         className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs focus:outline-none focus:border-red-600"
                       >
                         <option value="all">Toutes les catégories</option>
@@ -2134,6 +2188,19 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           <option key={c.id} value={c.slug}>{c.name}</option>
                         ))}
                       </select>
+
+                      {productCategoryFilter !== 'all' && (categories.find(c => c.slug === productCategoryFilter)?.subcategories?.length ?? 0) > 0 && (
+                        <select
+                          value={productSubcategoryFilter}
+                          onChange={(e) => setProductSubcategoryFilter(e.target.value)}
+                          className="px-3 py-2 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-bold focus:outline-none focus:border-red-600"
+                        >
+                          <option value="all">Toutes sous-catégories</option>
+                          {categories.find(c => c.slug === productCategoryFilter)?.subcategories?.map(sub => (
+                            <option key={sub.id || sub.slug} value={sub.slug}>{sub.name}</option>
+                          ))}
+                        </select>
+                      )}
                     </div>
 
                     {!isAddingNewProduct && !editingProduct && (
@@ -2404,14 +2471,16 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">Catégorie / Rayon *</label>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Catégorie / Rayon principal *</label>
                           <select
                             value={formCategory}
                             onChange={(e) => {
                               setFormCategory(e.target.value);
                               setFormSubcategory('');
+                              setIsCustomSubcategory(false);
+                              setCustomSubcategoryInput('');
                             }}
-                            className="w-full px-3 py-2 bg-white rounded-xl border border-gray-300 text-xs focus:outline-none focus:border-red-600"
+                            className="w-full px-3 py-2 bg-white rounded-xl border border-gray-300 text-xs focus:outline-none focus:border-red-600 font-semibold"
                           >
                             {categories.map((c) => (
                               <option key={c.id} value={c.slug}>{c.name}</option>
@@ -2419,33 +2488,144 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           </select>
                         </div>
 
-                        <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">
-                            Sous-catégorie
-                            {categories.find(c => c.slug === formCategory)?.subcategories?.length ? (
-                              <span className="text-emerald-600 font-semibold ml-1">({categories.find(c => c.slug === formCategory)?.subcategories?.length} dispo)</span>
-                            ) : null}
-                          </label>
-                          {categories.find(c => c.slug === formCategory)?.subcategories?.length ? (
-                            <select
-                              value={formSubcategory}
-                              onChange={(e) => setFormSubcategory(e.target.value)}
-                              className="w-full px-3 py-2 bg-white rounded-xl border border-gray-300 text-xs focus:outline-none focus:border-red-600"
+                        {/* Sous-catégorie / Double classement */}
+                        <div className="lg:col-span-2 bg-gray-50/90 p-3.5 rounded-2xl border border-gray-200 shadow-2xs">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-bold text-gray-800">
+                              Sous-catégorie du produit
+                              {categories.find(c => c.slug === formCategory)?.subcategories?.length ? (
+                                <span className="text-emerald-700 font-semibold ml-1.5 text-[11px]">
+                                  ({categories.find(c => c.slug === formCategory)?.subcategories?.length} disponible{categories.find(c => c.slug === formCategory)!.subcategories!.length > 1 ? 's' : ''})
+                                </span>
+                              ) : null}
+                            </label>
+                            
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsCustomSubcategory(!isCustomSubcategory);
+                                if (!isCustomSubcategory) {
+                                  setFormSubcategory('');
+                                }
+                              }}
+                              className="text-[11px] font-bold text-red-600 hover:text-red-700 flex items-center gap-1 cursor-pointer transition"
                             >
-                              <option value="">-- Aucune / Rayon principal --</option>
-                              {categories.find(c => c.slug === formCategory)?.subcategories?.map((sub) => (
-                                <option key={sub.id || sub.slug} value={sub.slug}>{sub.name}</option>
-                              ))}
-                            </select>
+                              <PlusCircle className="w-3.5 h-3.5" />
+                              <span>{isCustomSubcategory ? 'Choisir parmi la liste existante' : '+ Nouvelle sous-catégorie'}</span>
+                            </button>
+                          </div>
+
+                          {isCustomSubcategory ? (
+                            <div className="space-y-2">
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={customSubcategoryInput}
+                                  onChange={(e) => setCustomSubcategoryInput(e.target.value)}
+                                  placeholder="ex: Smartphones 5G, Robes de soirée, Sacs à main..."
+                                  className="flex-1 px-3 py-2 bg-white rounded-xl border border-red-300 text-xs focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-200"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsCustomSubcategory(false);
+                                    if (customSubcategoryInput.trim()) {
+                                      setFormSubcategory(customSubcategoryInput.trim());
+                                    }
+                                  }}
+                                  className="px-3.5 py-2 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-xl"
+                                >
+                                  Valider
+                                </button>
+                              </div>
+                              <label className="flex items-center gap-2 text-[11px] text-gray-700 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={persistSubcatToCategory}
+                                  onChange={(e) => setPersistSubcatToCategory(e.target.checked)}
+                                  className="rounded text-red-600 focus:ring-red-500 w-3.5 h-3.5"
+                                />
+                                <span>Enregistrer aussi cette sous-catégorie dans la liste permanente du rayon « {categories.find(c => c.slug === formCategory)?.name || formCategory} »</span>
+                              </label>
+                            </div>
                           ) : (
-                            <input
-                              type="text"
-                              value={formSubcategory}
-                              onChange={(e) => setFormSubcategory(e.target.value)}
-                              placeholder="ex: Amplificateurs, Micros..."
-                              className="w-full px-3 py-2 bg-white rounded-xl border border-gray-300 text-xs focus:outline-none focus:border-red-600"
-                            />
+                            <div className="space-y-2">
+                              <select
+                                value={formSubcategory}
+                                onChange={(e) => {
+                                  if (e.target.value === '__custom__') {
+                                    setIsCustomSubcategory(true);
+                                    setFormSubcategory('');
+                                  } else {
+                                    setFormSubcategory(e.target.value);
+                                  }
+                                }}
+                                className="w-full px-3 py-2 bg-white rounded-xl border border-gray-300 text-xs focus:outline-none focus:border-red-600"
+                              >
+                                <option value="">-- Aucune / Rayon principal uniquement --</option>
+                                {categories.find(c => c.slug === formCategory)?.subcategories?.map((sub) => (
+                                  <option key={sub.id || sub.slug} value={sub.slug}>{sub.name}</option>
+                                ))}
+                                <option value="__custom__">+ Saisir une nouvelle sous-catégorie sur-mesure...</option>
+                              </select>
+
+                              {/* Clickable Quick Pills */}
+                              {categories.find(c => c.slug === formCategory)?.subcategories && categories.find(c => c.slug === formCategory)!.subcategories!.length > 0 && (
+                                <div className="pt-1 flex flex-wrap gap-1.5 items-center">
+                                  <span className="text-[10px] text-gray-500 font-semibold mr-1">Sélection rapide :</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setFormSubcategory('')}
+                                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${
+                                      !formSubcategory
+                                        ? 'bg-gray-800 text-white shadow-xs'
+                                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                                    }`}
+                                  >
+                                    Rayon Principal (Tout)
+                                  </button>
+                                  {categories.find(c => c.slug === formCategory)!.subcategories!.map((sub) => {
+                                    const isSubActive = formSubcategory === sub.slug || formSubcategory === sub.name;
+                                    return (
+                                      <button
+                                        key={sub.id || sub.slug}
+                                        type="button"
+                                        onClick={() => setFormSubcategory(sub.slug)}
+                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                                          isSubActive
+                                            ? 'bg-red-600 text-white shadow-xs'
+                                            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                                        }`}
+                                      >
+                                        {isSubActive && <CheckCircle2 className="w-2.5 h-2.5" />}
+                                        <span>{sub.name}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
                           )}
+
+                          {/* Visual Placement Recap */}
+                          <div className="mt-2.5 pt-2 border-t border-gray-200 flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
+                            <span className="font-bold text-gray-800 flex items-center gap-1">
+                              <FolderTree className="w-3.5 h-3.5 text-red-600" />
+                              Double classement :
+                            </span>
+                            <span className="px-2 py-0.5 bg-white border border-gray-300 rounded font-semibold text-gray-900">
+                              Catégorie : {categories.find(c => c.slug === formCategory)?.name || formCategory}
+                            </span>
+                            <span className="text-gray-400">➔</span>
+                            <span className="px-2 py-0.5 bg-red-50 border border-red-200 text-red-700 rounded font-bold">
+                              Sous-catégorie : {isCustomSubcategory
+                                ? (customSubcategoryInput.trim() || 'À renseigner...')
+                                : (categories.find(c => c.slug === formCategory)?.subcategories?.find(s => s.slug === formSubcategory || s.name === formSubcategory)?.name || formSubcategory || 'Rayon principal (Toutes)')}
+                            </span>
+                            <span className="text-[10px] text-emerald-700 font-bold ml-auto">
+                              ✓ Visible dans la catégorie ET sous son filtre sous-catégorie
+                            </span>
+                          </div>
                         </div>
 
                         <div>
@@ -2797,7 +2977,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         <thead className="bg-gray-100 text-gray-700 font-bold border-b border-gray-200">
                           <tr>
                             <th className="p-3.5">Article</th>
-                            <th className="p-3.5">Catégorie</th>
+                            <th className="p-3.5">Catégorie & Sous-catégorie</th>
                             <th className="p-3.5">Prix FCFA</th>
                             <th className="p-3.5">Stock</th>
                             <th className="p-3.5">Badges</th>
@@ -2816,9 +2996,21 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                               </td>
 
                               <td className="p-3.5 text-gray-600">
-                                <span className="px-2 py-0.5 bg-gray-100 rounded text-[11px]">
-                                  {prod.category}
-                                </span>
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded font-semibold text-[11px]">
+                                    {categories.find(c => c.slug === prod.category)?.name || prod.category}
+                                  </span>
+                                  {prod.subcategory ? (
+                                    <span className="px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded text-[10px] font-bold flex items-center gap-1">
+                                      <span>↳</span>
+                                      <span>{categories.find(c => c.slug === prod.category)?.subcategories?.find(s => s.slug === prod.subcategory || s.name.toLowerCase() === prod.subcategory?.toLowerCase())?.name || prod.subcategory}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-gray-400 italic">
+                                      Rayon principal
+                                    </span>
+                                  )}
+                                </div>
                               </td>
 
                               <td className="p-3.5">

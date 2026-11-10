@@ -214,6 +214,7 @@ export const ShopCatalog: React.FC<ShopCatalogProps> = ({
                     p.category === selectedCategorySlug && 
                     p.subcategory && (
                       p.subcategory.toLowerCase() === subcat.name.toLowerCase() ||
+                      p.subcategory.toLowerCase() === subSlug.toLowerCase() ||
                       p.subcategory.toLowerCase().replace(/[^a-z0-9]+/g, '-') === subSlug
                     )
                   ).length;
